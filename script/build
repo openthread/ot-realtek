@@ -1,0 +1,160 @@
+#!/bin/bash
+#
+#  Copyright (c) 2025, The OpenThread Authors.
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions are met:
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#  3. Neither the name of the copyright holder nor the
+#     names of its contributors may be used to endorse or promote products
+#     derived from this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+#  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+#  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+#  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+#  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+#  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+#  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+#  POSSIBILITY OF SUCH DAMAGE.
+#
+
+set -euxo pipefail
+
+export OT_SRCDIR="$(pwd)"
+export OUT_FOLDER="${OT_SRCDIR}/${OT_CMAKE_BUILD_DIR:-build}"
+OT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET:-}
+
+#to add more by modify ld
+is_create_ld_gen()
+{
+    local ldgentargets=("rtl8777g")
+
+    for ldgentarget in "${ldgentargets[@]}"; do
+        if [ "${board_target}" == "${ldgentarget}" ]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+#modify folder to src/rtl8777g
+is_rtl8777g_signal_target()
+{
+    local is8777gsignaltargets=("rtl8777g")
+
+    for is8777gsignaltarget in "${is8777gsignaltargets[@]}"; do
+        if [ "${board_target}" == "${is8777gsignaltarget}" ]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+build()
+{
+    mkdir -p "${OUT_FOLDER}"
+    cd "${OUT_FOLDER}"
+    rm -rf "${OUT_FOLDER}/bin"
+
+    cmake -GNinja -DOT_COMPILE_WARNING_AS_ERROR=ON "$@" "${OT_SRCDIR}"
+
+    if [[ -n ${OT_CMAKE_NINJA_TARGET[*]} ]]; then
+        ninja "${OT_CMAKE_NINJA_TARGET[@]}"
+    else
+        ninja 
+    fi
+}
+
+pre_build()
+{
+    if is_create_ld_gen >/dev/null 2>&1; then
+       ${OT_SRCDIR}/script/pre_build ${BUILD_BANK} ${target}
+    fi
+}
+
+post_build()
+{
+    if is_create_ld_gen >/dev/null 2>&1; then
+        ${OT_SRCDIR}/script/post_build ${BUILD_BANK} ${OT_CMAKE_NINJA_TARGET}
+        rm -f ${OT_SRCDIR}/src/${platform}/${target}/*.gen
+    fi
+}
+
+set_sdk_path()
+{
+   case "${platform}" in
+       bee4)
+           export REALTEK_SDK_PATH="${OT_SRCDIR}/third_party/Realtek/rtl87x2g_sdk"
+           ;;
+       *)
+   esac
+}
+
+main()
+{
+    local platform="$1"
+    local build_type="$2"
+    local board_target="$3"
+    local target="$3"
+    local options
+
+    if is_rtl8777g_signal_target; then
+        target="rtl8777g"
+    fi
+
+    if is_create_ld_gen >/dev/null 2>&1; then
+        BUILD_BANK="bank0"
+    fi
+
+    set_sdk_path
+
+    options+=("-DBUILD_TYPE=${build_type}")
+    options+=("-DCMAKE_BUILD_TYPE=Release")
+    case "${platform}" in
+        bee4)
+        options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/src/${platform}/example_vendor_hook.cpp")
+        options+=("-DRT_PLATFORM=${platform}")
+        options+=("-DBUILD_BOARD_TARGET=${board_target}")
+        options+=("-DBUILD_TARGET=${target}")
+        case "${OT_CMAKE_NINJA_TARGET}" in
+            ot-cli-ftd | ot-cli-mtd)
+                cd ${OT_SRCDIR}/openthread && git checkout 2aeb8b8 && cd ${OT_SRCDIR}
+                options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
+                options+=("-DENABLE_CLI=ON")
+                ;;
+            ot-rcp)
+                cd ${OT_SRCDIR}/openthread && git checkout 2aeb8b8 && cd ${OT_SRCDIR}
+                options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
+                options+=("-DENABLE_CLI=OFF -DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
+                ;;
+            *)
+                ;;
+        esac
+        case "${build_type}" in
+            sdk)
+                options+=("-DOT_EXTERNAL_MBEDTLS=bee4-mbedtls")
+                ;;
+        esac
+        options+=("-DOT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET}")
+        ;;
+    esac
+
+    options+=("$@")
+
+    pre_build
+    build "${options[@]}"
+    post_build
+}
+
+main "$@"
