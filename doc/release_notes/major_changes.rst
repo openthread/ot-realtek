@@ -1,7 +1,3 @@
-.. start-majorchanges_vx.x.x.x
-
-.. end-majorchanges_vx.x.x.x
-
 .. start-majorchanges_v1.3.0.0
 - **Major Features**
 
