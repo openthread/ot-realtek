@@ -4,8 +4,8 @@ This repo contains example platform drivers for the [Realtek RTL8777G][RTL8777G]
 
 [RTL8777G]: https://www.realtek.com/
 
-## Downlod submoudle
-In a Bash terminal, follow these instructions to clone all submoudle.
+## Downlod submodule
+In a Bash terminal, follow these instructions to clone all submoudles.
 
 ```bash
 $ cd <path-to-ot-realtek>
