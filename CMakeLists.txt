@@ -29,7 +29,7 @@
 cmake_minimum_required(VERSION 3.10.2)
 project(ot-realtek VERSION 0.2.0 LANGUAGES C CXX ASM)
 
-if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd")
+if("${OT_CMAKE_NINJA_TARGET}" STREQUAL "matter-cli-ftd" OR "${OT_CMAKE_NINJA_TARGET}" STREQUAL "matter-cli-mtd")
 
 string(FIND "${BUILD_TARGET}" "rtl8777g" FOUND_INDEX)
 if(NOT FOUND_INDEX EQUAL -1)
