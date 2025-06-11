@@ -38,25 +38,25 @@ echo "PRODUCT_ID=${PRODUCT_ID}"
 echo "VERSION=${VERSION}"
 echo "VERSION_STR=${VERSION_STR}"
 
-chmod +x ${OT_SRCDIR}/tools/FlashMapGenerateCli
-chmod +x ${OT_SRCDIR}/tools/PackCli
+chmod +x "${OT_SRCDIR}/tools/FlashMapGenerateCli"
+chmod +x "${OT_SRCDIR}/tools/PackCli"
 
-if [[ $1 == *"dual"* ]]; then  
-    cp -f ${OT_SRCDIR}/vendor/bee4/$1/*.ini ${OTA_FOLDER}
-    cp -f ${OT_SRCDIR}/vendor/bee4/${1%/secure}/firmware/bank0/* ${OTA_FOLDER}
-    cp -f ${OT_SRCDIR}/vendor/bee4/${1%/secure}/firmware/bank1/* ${OTA_FOLDER}
-    cp -f ${OUT_FOLDER}/bin/*MP_dev*.bin ${OTA_FOLDER}
+if [[ $1 == *"dual"* ]]; then
+    cp -f "${OT_SRCDIR}/vendor/bee4/$1/*.ini" "${OTA_FOLDER}"
+    cp -f "${OT_SRCDIR}/vendor/bee4/${1%/secure}/firmware/bank0/*" "${OTA_FOLDER}"
+    cp -f "${OT_SRCDIR}/vendor/bee4/${1%/secure}/firmware/bank1/*" "${OTA_FOLDER}"
+    cp -f "${OUT_FOLDER}/bin/*MP_dev*.bin" "${OTA_FOLDER}"
 
-    ${OT_SRCDIR}/tools/FlashMapGenerateCli ${OTA_FOLDER} $2 ${OTA_FOLDER}
+    "${OT_SRCDIR}/tools/FlashMapGenerateCli" "${OTA_FOLDER}" "$2" "${OTA_FOLDER}"
 else
-    cp -f ${OT_SRCDIR}/vendor/bee4/$1/*.ini  ${OTA_FOLDER}
-    cp -f ${OUT_FOLDER}/bin/*MP_dev*.bin  ${OTA_FOLDER}
+    cp -f "${OT_SRCDIR}/vendor/bee4/$1/*.ini"  "${OTA_FOLDER}"
+    cp -f "${OUT_FOLDER}/bin/*MP_dev*.bin"  "${OTA_FOLDER}"
 fi
 
-rm -rf  ${OTA_FOLDER}/*.ota
-${OT_SRCDIR}/tools/PackCli 8772gwp ota  ${OTA_FOLDER}  ${OTA_FOLDER}/..
+rm -rf  "${OTA_FOLDER}"/*.ota
+"${OT_SRCDIR}/tools/PackCli" 8772gwp ota  "${OTA_FOLDER}"  "${OTA_FOLDER}/.."
 
-${OT_SRCDIR}/../matter/connectedhomeip/src/app/ota_image_tool.py create -v ${VENDOR_ID} -p ${PRODUCT_ID} -vn ${VERSION} -vs ${VERSION_STR} -da sha256 ${OTA_FOLDER}/ImgPacketFile*.bin ${OTA_FOLDER}/matter.ota
+"${OT_SRCDIR}/../matter/connectedhomeip/src/app/ota_image_tool.py" create -v "${VENDOR_ID}" -p "${PRODUCT_ID}" -vn "${VERSION}" -vs "${VERSION_STR}" -da sha256 "${OTA_FOLDER}/ImgPacketFile*.bin" "${OTA_FOLDER}/matter.ota"
 
-rm -rf  ${OTA_FOLDER}/*.bin
-rm -rf  ${OTA_FOLDER}/*.ini
+rm -rf  "${OTA_FOLDER}"/*.bin
+rm -rf  "${OTA_FOLDER}"/*.ini

@@ -129,12 +129,12 @@ main()
         options+=("-DBUILD_TARGET=${target}")
         case "${OT_CMAKE_NINJA_TARGET}" in
             ot-cli-ftd | ot-cli-mtd)
-                cd ${OT_SRCDIR}/openthread && git checkout 2aeb8b8 && cd ${OT_SRCDIR}
+                cd "${OT_SRCDIR}/openthread" && git checkout 2aeb8b8 && cd "${OT_SRCDIR}"
                 options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
                 options+=("-DENABLE_CLI=ON")
                 ;;
             ot-rcp)
-                cd ${OT_SRCDIR}/openthread && git checkout 2aeb8b8 && cd ${OT_SRCDIR}
+                cd "${OT_SRCDIR}/openthread" && git checkout 2aeb8b8 && cd "${OT_SRCDIR}"
                 options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
                 options+=("-DENABLE_CLI=OFF -DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
                 ;;
