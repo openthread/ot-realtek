@@ -1,0 +1,56 @@
+*.a
+*.bak
+*.db
+*.flash
+*.gcda
+*.gcno
+*.log
+*.o
+*.lo
+*.la
+*.ninja*
+*.opendb
+*.orig
+*.pcap
+*.pyc
+*.suo
+*.swn
+*.swo
+*.swp
+*.trs
+*.user
+*~
+.deps
+.dirstamp
+.DS_Store
+.local-version
+.libs
+.vagrant
+
+# CMake
+build/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# IDE / editor files
+.idea/
+.vscode/
+cmake-build-*/
+/tags
+
+# Python bytecodes
+__pycache__
+
+# Images and other build artifacts
+*.hex
+*.zip
+*.bin
+*.elf
+*.map
+*.out
+*.d
+
+# Project-specific generated files
+*.gen
+*.md5
