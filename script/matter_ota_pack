@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+#  Copyright (c) 2025, The OpenThread Authors.
+#  All rights reserved.
+#
+#  Redistribution and use in source and binary forms, with or without
+#  modification, are permitted provided that the following conditions are met:
+#  1. Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+#  2. Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+#  3. Neither the name of the copyright holder nor the
+#     names of its contributors may be used to endorse or promote products
+#     derived from this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+#  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+#  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+#  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+#  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+#  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+#  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+#  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+#  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+#  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+#  POSSIBILITY OF SUCH DAMAGE.
+#
+
+PROJECT_CONFIG=${MATTER_EXAMPLE_PATH}/main/include/CHIPProjectConfig.h
+VENDOR_ID=$(awk '/#define CHIP_DEVICE_CONFIG_DEVICE_VENDOR_ID/{print $3}' ${PROJECT_CONFIG})
+PRODUCT_ID=$(awk '/#define CHIP_DEVICE_CONFIG_DEVICE_PRODUCT_ID/{print $3}' ${PROJECT_CONFIG})
+VERSION=$(awk '/#define CHIP_DEVICE_CONFIG_DEVICE_SOFTWARE_VERSION/{print $3; exit}' ${PROJECT_CONFIG})
+VERSION_STR=$(awk '/#define CHIP_DEVICE_CONFIG_DEVICE_SOFTWARE_VERSION_STRING/{print $3}' ${PROJECT_CONFIG})
+
+echo "VENDOR_ID=${VENDOR_ID}"
+echo "PRODUCT_ID=${PRODUCT_ID}"
+echo "VERSION=${VERSION}"
+echo "VERSION_STR=${VERSION_STR}"
+
+chmod +x "${OT_SRCDIR}/tools/FlashMapGenerateCli"
+chmod +x "${OT_SRCDIR}/tools/PackCli"
+
+if [[ $1 == *"dual"* ]]; then
+    cp -f "${OT_SRCDIR}/vendor/bee4/$1/*.ini" "${OTA_FOLDER}"
+    cp -f "${OT_SRCDIR}/vendor/bee4/${1%/secure}/firmware/bank0/*" "${OTA_FOLDER}"
+    cp -f "${OT_SRCDIR}/vendor/bee4/${1%/secure}/firmware/bank1/*" "${OTA_FOLDER}"
+    cp -f "${OUT_FOLDER}/bin/*MP_dev*.bin" "${OTA_FOLDER}"
+
+    "${OT_SRCDIR}/tools/FlashMapGenerateCli" "${OTA_FOLDER}" "$2" "${OTA_FOLDER}"
+else
+    cp -f "${OT_SRCDIR}/vendor/bee4/$1/*.ini"  "${OTA_FOLDER}"
+    cp -f "${OUT_FOLDER}/bin/*MP_dev*.bin"  "${OTA_FOLDER}"
+fi
+
+rm -rf  "${OTA_FOLDER}"/*.ota
+"${OT_SRCDIR}/tools/PackCli" 8772gwp ota  "${OTA_FOLDER}"  "${OTA_FOLDER}/.."
+
+"${OT_SRCDIR}/../matter/connectedhomeip/src/app/ota_image_tool.py" create -v "${VENDOR_ID}" -p "${PRODUCT_ID}" -vn "${VERSION}" -vs "${VERSION_STR}" -da sha256 "${OTA_FOLDER}/ImgPacketFile*.bin" "${OTA_FOLDER}/matter.ota"
+
+rm -rf  "${OTA_FOLDER}"/*.bin
+rm -rf  "${OTA_FOLDER}"/*.ini
