@@ -57,5 +57,6 @@ __pycache__
 
 # Sync & modification scripts
 update_sdk.sh
-modify_content.sh
+modify_context.sh
+modify_context_old.sh
 changed_files.log
