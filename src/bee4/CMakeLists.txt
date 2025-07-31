@@ -260,6 +260,18 @@ target_include_directories(openthread-bee4
         ${REALTEK_SDK_ROOT}/subsys/usb/usb_lib/inc/composite
 )
 
+if(${BUILD_TYPE} STREQUAL "dev")
+add_custom_command(
+    TARGET openthread-bee4
+    POST_BUILD
+    COMMAND mkdir -p ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/${BUILD_TARGET} && cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libbee4-internal.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/${BUILD_TARGET}/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedcrypto.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedtls.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedx509.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/
+    COMMAND cd ${PROJECT_SOURCE_DIR}/openthread && git reset --hard HEAD && git clean -f -d
+)
+endif()
+
 ##################################################
 # matter-port
 ##################################################

@@ -125,7 +125,6 @@ main()
     case "${platform}" in
         bee4)
         options+=("-DRT_PLATFORM=${platform}")
-        options+=("-DBUILD_BOARD_TARGET=${board_target}")
         options+=("-DBUILD_TARGET=${target}")
         case "${OT_CMAKE_NINJA_TARGET}" in
             ot-cli-ftd | ot-cli-mtd)
