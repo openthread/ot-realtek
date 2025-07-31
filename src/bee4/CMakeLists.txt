@@ -26,7 +26,13 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 set(TARGETS_CONFIGS
+    "evb"                      "-DBOARD_EVB"                          "app.ld.gen"
+    "evb_dual"                 "-DBOARD_EVB"                          "app.ld.gen"
+    "rtl8771guv"               "-DBOARD_RTL8771GUV -DBUILD_USB"       "app.ld"
+    "rtl8771gtv"               "-DBOARD_RTL8771GTV"                   "app.ld"
     "rtl8777g"                 "-DBOARD_RTL8777G"                     "app.ld.gen"
+    "rtl8777g_cert"            "-DBOARD_RTL8777G -DBUILD_CERT"        "app.ld.gen"
+    "rtl8777g_test"            "-DBOARD_RTL8777G"                     "app.ld.gen"
 )
 
 function(setup_target target_name)
@@ -51,10 +57,45 @@ else()
     setup_target(${BUILD_BOARD_TARGET})
 endif()
 
+if(${BUILD_TYPE} STREQUAL "dev")
+add_library(bee4-internal
+    # mac driver
+    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/mac_driver_ext.c
+    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/bee4/patch.c
+    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/bee4/pta.c
+    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/bee4/zb_pta_pin_mux.c
+    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/zb_pta.c
+    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/zb_sw_pta.c
+    ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/config_param/config_param_handle.c
+)
+
+target_include_directories(bee4-internal
+    PRIVATE
+        ${REALTEK_SDK_INCPATH}
+        ${REALTEK_SDK_ROOT}/bsp/sdk_lib/inc
+        ${REALTEK_SDK_ROOT}/subsys/mac_driver
+        ${REALTEK_SDK_ROOT}/subsys/mac_driver/portable/bee4
+        ${REALTEK_SDK_ROOT}/subsys/mac_driver/private
+        ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/bee4
+        ${CMAKE_CURRENT_SOURCE_DIR}/${BUILD_TARGET}
+        ${CMAKE_CURRENT_SOURCE_DIR}/common
+        ${CMAKE_CURRENT_SOURCE_DIR}
+        ${REALTEK_SDK_ROOT}/../ROMExport/rtl87x2g/inc
+        ${REALTEK_SDK_ROOT}/../ROMExport/rtl87x2g/inc/nsc
+)
+endif()
+
 if (NOT OT_EXTERNAL_MBEDTLS)
+if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-mtd")
+target_compile_definitions(ot-config INTERFACE
+        MBEDTLS_USER_CONFIG_FILE="ncp-mbedtls-config.h"
+)
+else()
 target_compile_definitions(ot-config INTERFACE
         MBEDTLS_USER_CONFIG_FILE="${RT_PLATFORM}-mbedtls-config.h"
 )
+endif()
 else()
 
 add_library(bee4-mbedtls INTERFACE)
@@ -98,7 +139,7 @@ set_target_properties(
 target_link_directories(bee4-peripheral
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/${BUILD_TARGET}
-        ${PROJECT_SOURCE_DIR}/lib/${RT_PLATFORM}
+        ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}
 )
 
 target_include_directories(bee4-peripheral
@@ -204,6 +245,7 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp")
     target_compile_definitions(openthread-bee4 PUBLIC "BUILD_RCP=1")
 endif()
 
+if(NOT (${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd"))
 if(${ENABLE_CLI} STREQUAL "ON")
     target_compile_definitions(openthread-bee4 PUBLIC "ENABLE_CLI=1")
 else()
@@ -212,6 +254,15 @@ if(${BUILD_BOARD_TARGET} STREQUAL "rtl8777g_cert")
 else()
     target_compile_definitions(openthread-bee4 PUBLIC "ENABLE_CLI=0")
 endif()
+endif()
+endif()
+
+if(NOT DEFINED BUILD_TRANSMIT_RETRY)
+set(BUILD_TRANSMIT_RETRY "ON")
+endif()
+
+if(${BUILD_TRANSMIT_RETRY} STREQUAL "ON")
+target_compile_definitions(openthread-bee4 PUBLIC "BUILD_TRANSMIT_RETRY=1")
 endif()
 
 target_compile_options(openthread-bee4
@@ -237,8 +288,272 @@ target_include_directories(openthread-bee4
         ${REALTEK_SDK_ROOT}/subsys/usb/usb_lib/inc/composite
 )
 
+if(${BUILD_TYPE} STREQUAL "dev")
+add_custom_command(
+    TARGET openthread-bee4
+    POST_BUILD
+    COMMAND mkdir -p ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/${BUILD_TARGET} && cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libbee4-internal.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/${BUILD_TARGET}/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedcrypto.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedtls.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedx509.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/
+    COMMAND cd ${PROJECT_SOURCE_DIR}/openthread && git reset --hard HEAD && git clean -f -d
+)
+endif()
+
 ##################################################
-# ot-cli-ftd
+# matter-port
+##################################################
+
+if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd")
+
+if(DEFINED ENABLE_PW_RPC AND "${ENABLE_PW_RPC}" STREQUAL "ON")
+    target_compile_definitions(openthread-bee4 PUBLIC "ENABLE_PW_RPC=1")
+else()
+    target_compile_definitions(openthread-bee4 PUBLIC "ENABLE_PW_RPC=0")
+endif()
+
+if(matter_enable_cfu)
+    target_compile_definitions(openthread-bee4 PUBLIC "MATTER_ENABLE_CFU=1" "FEATURE_SUPPORT_CFU=1")
+else()
+    target_compile_definitions(openthread-bee4 PUBLIC "MATTER_ENABLE_CFU=0")
+endif()
+
+target_sources(openthread-bee4
+    PRIVATE
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/kvmgr.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/matter_uart.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/matter_gpio.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/matter_kvs.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/matter_led.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/matter_utils.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/matter_wdt.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/factory_data/factory.pb.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/factory_data/pb_common.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/factory_data/pb_decode.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/factory_data/pb_encode.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/matter_ble/matter_ble.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/matter_ble/matter_ble_service.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/matter_ble/matter_ble_task.c
+)
+
+if(matter_enable_ota_requestor)
+target_include_directories(openthread-bee4
+    PRIVATE
+        ${REALTEK_SDK_ROOT}/subsys/dfu
+)
+
+target_sources(openthread-bee4
+    PRIVATE
+    ${REALTEK_SDK_ROOT}/subsys/dfu/dfu_common.c
+    ${REALTEK_SDK_ROOT}/subsys/matter/vendor/matter_ota.c
+)
+endif()
+
+if(matter_enable_ble_ota)
+target_compile_definitions(openthread-bee4 PUBLIC
+    SUPPORT_BLE_OTA=1
+    SUPPORT_NORMAL_OTA=0
+)
+
+target_include_directories(openthread-bee4
+    PRIVATE
+        ${REALTEK_SDK_ROOT}/subsys/dfu
+)
+
+target_sources(openthread-bee4
+    PRIVATE
+    ${REALTEK_SDK_ROOT}/subsys/dfu/ble_dfu_transport.c
+    ${REALTEK_SDK_ROOT}/subsys/dfu/dfu_app.c
+    ${REALTEK_SDK_ROOT}/subsys/dfu/dfu_common.c
+    ${REALTEK_SDK_ROOT}/subsys/dfu/dfu_service.c
+    ${REALTEK_SDK_ROOT}/subsys/dfu/ota_service.c
+)
+endif()
+
+if(matter_factory_data_encryption)
+    target_compile_definitions(openthread-bee4 PUBLIC "CONFIG_FACTORY_DATA_ENCRYPTION=1")
+else()
+    target_compile_definitions(openthread-bee4 PUBLIC "CONFIG_FACTORY_DATA_ENCRYPTION=0")
+endif()
+
+if(matter_dac_key_encryption)
+    target_compile_definitions(openthread-bee4 PUBLIC "CONFIG_DAC_KEY_ENC=1")
+endif()
+
+target_link_options(openthread-bee4
+    PUBLIC
+        "LINKER:SHELL:-L ${PROJECT_BINARY_DIR}/lib"
+        "LINKER:SHELL:-L ${PROJECT_BINARY_DIR}/chip/lib"
+)
+
+target_compile_definitions(openthread-bee4
+    PUBLIC
+        "BUILD_MATTER"
+)
+
+target_include_directories(openthread-bee4
+    PRIVATE
+        ${REALTEK_SDK_ROOT}/subsys/matter/vendor
+        ${REALTEK_SDK_ROOT}/subsys/matter/vendor/matter_ble
+)
+else()
+target_link_options(openthread-bee4
+    PUBLIC
+        -Wl,--wrap,otTaskletsSignalPending
+)
+endif()
+
+
+##################################################
+# cli-uart
+##################################################
+
+if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd")
+add_library(cli_uart
+    ${PROJECT_SOURCE_DIR}/openthread/examples/apps/cli/cli_uart.cpp
+)
+
+target_include_directories(cli_uart
+    PRIVATE
+        $<TARGET_PROPERTY:ot-config,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
+target_compile_definitions(cli_uart
+    PRIVATE
+        $<TARGET_PROPERTY:ot-config,INTERFACE_COMPILE_DEFINITIONS>
+)
+
+if(DEFINED ENABLE_CLI AND "${ENABLE_CLI}" STREQUAL "ON")
+    target_compile_definitions(openthread-bee4 PUBLIC "ENABLE_CLI=1")
+else()
+    target_compile_definitions(openthread-bee4 PUBLIC "ENABLE_CLI=0")
+endif()
+endif()
+
+##################################################
+# matter-cli-ftd
+##################################################
+
+if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd")
+add_executable(matter-cli-ftd
+    main_ns.c
+)
+
+target_include_directories(matter-cli-ftd
+    PRIVATE
+        $<TARGET_PROPERTY:ot-config,INTERFACE_INCLUDE_DIRECTORIES>
+        ${REALTEK_SDK_ROOT}/subsys/cfu
+        ${REALTEK_SDK_ROOT}/subsys/dfu
+        ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/cfu
+        ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/config_param
+)
+
+target_compile_definitions(matter-cli-ftd
+    PRIVATE
+        $<TARGET_PROPERTY:ot-config,INTERFACE_COMPILE_DEFINITIONS>
+        "DLPS_EN=0"
+)
+
+if (matter_enable_rpc)
+    target_link_libraries(matter-cli-ftd
+        -Wl,--start-group
+        chip_main
+        CHIP
+        PwRpc
+        cli_uart
+        openthread-cli-ftd
+        openthread-bee4
+        openthread-ftd
+        lwip
+        -Wl,--end-group
+        ot-config-ftd
+        ot-config
+    )
+else()
+    target_link_libraries(matter-cli-ftd
+        -Wl,--start-group
+        chip_main
+        CHIP
+        cli_uart
+        openthread-cli-ftd
+        openthread-bee4
+        openthread-ftd
+        lwip
+        -Wl,--end-group
+        ot-config-ftd
+        ot-config
+    )
+endif()
+endif()
+
+##################################################
+# matter-cli-mtd
+##################################################
+
+if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd")
+add_executable(matter-cli-mtd
+    main_ns.c
+    ${REALTEK_SDK_ROOT}/bsp/power/io_dlps.c
+)
+
+target_include_directories(matter-cli-mtd
+    PRIVATE
+        $<TARGET_PROPERTY:ot-config,INTERFACE_INCLUDE_DIRECTORIES>
+)
+
+if(DEFINED ENABLE_DLPS AND "${ENABLE_DLPS}" STREQUAL "ON")
+    target_compile_definitions(matter-cli-mtd
+        PRIVATE
+            $<TARGET_PROPERTY:ot-config,INTERFACE_COMPILE_DEFINITIONS>
+            "DLPS_EN=1"
+    )
+    target_compile_definitions(openthread-bee4 PRIVATE "DLPS_EN=1")
+else()
+    target_compile_definitions(matter-cli-mtd
+        PRIVATE
+            $<TARGET_PROPERTY:ot-config,INTERFACE_COMPILE_DEFINITIONS>
+            "DLPS_EN=0"
+    )
+    target_compile_definitions(openthread-bee4 PRIVATE "DLPS_EN=0")
+endif()
+
+target_link_libraries(matter-cli-mtd
+    -Wl,--start-group
+    chip_main
+    CHIP
+    cli_uart
+    openthread-cli-mtd
+    openthread-bee4
+    openthread-mtd
+    lwip
+    -Wl,--end-group
+    ot-config-mtd
+    ot-config
+)
+
+if(${BUILD_TYPE} STREQUAL "dev")
+add_custom_command(
+    TARGET matter-cli-mtd
+    POST_BUILD
+    COMMAND cp -f ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/common/threading_alt.h ${REALTEK_SDK_ROOT}/subsys/mbedtls/repo/include/
+   # COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libbee4-internal.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/../libchip_main.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libcli_uart.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
+    #COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/../liblwip.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libopenthread-bee4.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libopenthread-cli-mtd.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libopenthread-mtd.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libtcplp-mtd.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/../chip/lib/libCHIP.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
+)
+endif()
+endif()
+
+##################################################
+# ot-cli-ftd or ot-ncp-ftd
 ##################################################
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-ftd")
 target_sources(ot-cli-ftd
@@ -265,10 +580,62 @@ target_compile_definitions(openthread-bee4
 endif()
 endif()
 
+if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd")
+target_sources(ot-ncp-ftd
+    PRIVATE
+    ${PROJECT_SOURCE_DIR}/src/bee4/main_ns.c
+)
+
+target_include_directories(ot-ncp-ftd
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src/bee4/${BUILD_TARGET}
+)
+
+target_compile_definitions(ot-ncp-ftd
+    PRIVATE
+        "DLPS_EN=0"
+)
+endif()
+
 ##################################################
 # ot-cli-mtd
 ##################################################
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-mtd")
+
+if(NOT DEFINED BLE_PERIPHERAL)
+set(BLE_PERIPHERAL "OFF")
+endif()
+
+if(${BLE_PERIPHERAL} STREQUAL "ON")
+target_sources(ot-cli-mtd
+    PRIVATE
+    ${PROJECT_SOURCE_DIR}/src/bee4/main.c
+    ${REALTEK_SDK_ROOT}/bsp/power/io_dlps.c
+    ${REALTEK_SDK_ROOT}/subsys/bluetooth/gatt_profile/src/server/bas.c
+    ${PROJECT_SOURCE_DIR}/src/bee4/simple_ble_service_nus.c
+    ${REALTEK_SDK_ROOT}/subsys/bluetooth/gatt_profile/src/client/ancs_client.c
+    ${REALTEK_SDK_ROOT}/samples/bluetooth/ble_peripheral/src/ancs.c
+    ${REALTEK_SDK_ROOT}/samples/bluetooth/ble_peripheral/src/app_task.c
+    ${PROJECT_SOURCE_DIR}/src/bee4/peripheral_app.c
+)
+
+target_include_directories(ot-cli-mtd
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src/bee4/${BUILD_TARGET}
+        ${REALTEK_SDK_ROOT}/samples/bluetooth/ble_peripheral/src
+        ${REALTEK_SDK_ROOT}/subsys/bluetooth/gatt_profile/inc/server
+        ${REALTEK_SDK_ROOT}/subsys/bluetooth/gatt_profile/inc/client
+        ${REALTEK_SDK_ROOT}/subsys/bluetooth/bt_host/inc
+        ${REALTEK_SDK_ROOT}/bin/rtl87x2g/bt_host_image/bt_host_0_0
+)
+
+target_compile_options(ot-cli-mtd
+    PRIVATE
+        -include ${REALTEK_SDK_ROOT}/samples/bluetooth/ble_peripheral/src/app_flags.h
+)
+
+target_compile_definitions(openthread-bee4 PRIVATE "BUILD_BLE_PERIPHERAL")
+else()
 target_sources(ot-cli-mtd
     PRIVATE
     ${PROJECT_SOURCE_DIR}/src/bee4/main_ns.c
@@ -279,6 +646,7 @@ target_include_directories(ot-cli-mtd
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src/bee4/${BUILD_TARGET}
 )
+endif()
 
 target_compile_definitions(ot-cli-mtd
     PRIVATE
@@ -289,4 +657,104 @@ target_compile_definitions(openthread-bee4
     PRIVATE
         "DLPS_EN=1"
 )
+endif()
+
+##################################################
+# ot-rcp
+##################################################
+if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp" OR matter_enable_cfu)
+
+if(${BUILD_TYPE} STREQUAL "dev")
+target_compile_definitions(bee4-internal PUBLIC "BUILD_RCP=1")
+
+add_library(rtk_sign
+    STATIC
+    ./internal/rtk_sign/rtk_sign.c
+)
+
+target_include_directories(rtk_sign
+    PRIVATE
+    ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/rtk_sign
+    ${REALTEK_SDK_INCPATH}
+    ${REALTEK_SDK_ROOT}/subsys/osif/inc
+    ${REALTEK_SDK_ROOT}/subsys/mbedtls/repo/include
+)
+
+target_link_libraries(openthread-bee4
+    PRIVATE
+        rtk_sign
+        ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedcrypto.a
+)
+
+add_custom_command(
+    TARGET openthread-bee4
+    POST_BUILD
+    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/librtk_sign.a ${REALTEK_SDK_ROOT}/lib/bee4/
+)
+else()
+target_link_libraries(openthread-bee4
+    PRIVATE
+        ${REALTEK_SDK_ROOT}/lib/bee4/librtk_sign.a
+        ${REALTEK_SDK_ROOT}/lib/bee4/libmbedcrypto.a
+)
+endif()
+
+target_include_directories(openthread-bee4
+    PRIVATE
+        ${REALTEK_SDK_ROOT}/subsys/cfu
+        ${REALTEK_SDK_ROOT}/subsys/dfu
+        ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/cfu
+        ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/config_param
+)
+
+target_sources(openthread-bee4
+    PRIVATE
+    ${REALTEK_SDK_ROOT}/subsys/cfu/cfu.c
+    ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/cfu/cfu_application.c
+    ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/cfu/cfu_task.c
+    ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/cfu/cfu_callback.c
+    "${REALTEK_SDK_ROOT}/subsys/dfu/dfu_common.c"
+    ${PROJECT_SOURCE_DIR}/src/bee4/main_ns.c
+)
+
+if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd")
+target_sources(openthread-bee4
+    PRIVATE
+    ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/cfu/usb_cfu_handle.c
+)
+elseif(${BUILD_BOARD_TARGET} STREQUAL "rtl8771guv" OR ${BUILD_BOARD_TARGET} STREQUAL "rtl8777g")
+target_sources(openthread-bee4
+    PRIVATE
+    ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/cfu/usb_cfu_handle.c
+)
+elseif(${BUILD_BOARD_TARGET} STREQUAL "rtl8771gtv")
+target_sources(openthread-bee4
+    PRIVATE
+    ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/cfu/uart_cfu_handle.c
+    ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/cfu/loop_queue.c
+    ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/cfu/uart_transport.c
+)
+endif()
+
+target_compile_definitions(openthread-bee4
+    PRIVATE
+        "DLPS_EN=0"
+)
+
+target_link_options(openthread-bee4
+    PUBLIC
+        -Wl,--wrap,otInstanceResetRadioStack
+)
+
 endif()
