@@ -123,34 +123,6 @@ main()
     options+=("-DBUILD_TYPE=${build_type}")
     options+=("-DCMAKE_BUILD_TYPE=Release")
     case "${platform}" in
-        bb2ultra)
-        options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/src/${platform}/example_vendor_hook.cpp")
-        options+=("-DRT_PLATFORM=${platform}")
-        options+=("-DBUILD_TARGET=${target}")
-        case "${OT_CMAKE_NINJA_TARGET}" in
-            ot-cli-ftd | ot-cli-mtd)
-                cd ${OT_SRCDIR}/openthread && git checkout thread-reference-20230706 && cd ${OT_SRCDIR}
-                options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
-                options+=("-DENABLE_CLI=ON")
-                ;;
-            ot-rcp)
-                dos2unix ${OT_SRCDIR}/vendor/bb2ultra/thread-reference-20230706_ot-rcp.patch
-                cd ${OT_SRCDIR}/openthread && git reset --hard HEAD && git checkout thread-reference-20230706 && git apply ../vendor/bb2ultra/thread-reference-20230706_ot-rcp.patch && cd ${OT_SRCDIR}
-                options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
-                options+=("-DENABLE_CLI=OFF -DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
-                ;;
-            *)
-                ;;
-        esac
-        case "${build_type}" in
-            dev)
-                echo "todo: replace mbedtls"
-                ;;
-            *)
-                ;;
-        esac
-        options+=("-DOT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET}")
-        ;;
         bee4)
         options+=("-DRT_PLATFORM=${platform}")
         options+=("-DBUILD_BOARD_TARGET=${board_target}")
@@ -161,14 +133,6 @@ main()
                 options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
                 options+=("-DENABLE_CLI=ON")
                 case "${build_type}" in
-                    dev)
-                        rm -Rf ${OT_SRCDIR}/openthread/third_party/mbedtls/repo
-                        cd ${OT_SRCDIR}/../mbedtls && tar -zcvf v3.0.0.tar.gz repo && cd ${OT_SRCDIR}
-                        tar zxvf ${OT_SRCDIR}/../mbedtls/v3.0.0.tar.gz -C ${OT_SRCDIR}/openthread/third_party/mbedtls/
-                        cp -f ${OT_SRCDIR}/vendor/bee4/common/common.h ${OT_SRCDIR}/openthread/third_party/mbedtls/repo/library/
-                        cp -f ${OT_SRCDIR}/vendor/bee4/common/threading_alt.h ${OT_SRCDIR}/openthread/third_party/mbedtls/repo/include/
-                        rm ${OT_SRCDIR}/../mbedtls/v3.0.0.tar.gz
-                         ;;
                     sdk)
                         options+=("-DOT_EXTERNAL_MBEDTLS=bee4-mbedtls")
                         ;;
@@ -192,14 +156,6 @@ main()
                 options+=("-DENABLE_CLI=OFF -DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
                 options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/src/${platform}/example_vendor_hook.cpp")
                 case "${build_type}" in
-                    dev)
-                        rm -Rf ${OT_SRCDIR}/openthread/third_party/mbedtls/repo
-                        cd ${OT_SRCDIR}/../mbedtls && tar -zcvf v3.0.0.tar.gz repo && cd ${OT_SRCDIR}
-                        tar zxvf ${OT_SRCDIR}/../mbedtls/v3.0.0.tar.gz -C ${OT_SRCDIR}/openthread/third_party/mbedtls/
-                        cp -f ${OT_SRCDIR}/vendor/bee4/common/common.h ${OT_SRCDIR}/openthread/third_party/mbedtls/repo/library/
-                        cp -f ${OT_SRCDIR}/vendor/bee4/common/threading_alt.h ${OT_SRCDIR}/openthread/third_party/mbedtls/repo/include/
-                        rm ${OT_SRCDIR}/../mbedtls/v3.0.0.tar.gz
-                         ;;
                     sdk)
                         options+=("-DOT_EXTERNAL_MBEDTLS=bee4-mbedtls")
                         ;;

@@ -452,7 +452,10 @@ APP_FLASH_TEXT_SECTION void *__wrap__realloc_r(struct _reent *ptr, void *mem, si
 {
     if (!newsize)
     {
-        os_mem_free(mem);
+        if (mem)
+        {
+            os_mem_free(mem);
+        }
         return NULL;
     }
 
@@ -460,6 +463,10 @@ APP_FLASH_TEXT_SECTION void *__wrap__realloc_r(struct _reent *ptr, void *mem, si
     p = os_mem_alloc(RAM_TYPE_DATA_ON, newsize);
     if (p)
     {
+        // WARNING: The size of the original block `mem` is unknown.
+        // Copying `newsize` bytes is only safe if `newsize` is less than or
+        // equal to the original size. If `newsize` is larger, this will
+        // read beyond the bounds of `mem`.
         if (mem)
         {
             __wrap_memcpy(p, mem, newsize);

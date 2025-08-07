@@ -57,7 +57,7 @@ if [[ $1 == *"dual"* ]]; then
     cp -f ${OT_SRCDIR}/src/bee4/${1%/secure}/firmware/bank1/* ${OTA_FOLDER}
     cp -f ${OUT_FOLDER}/bin/*MP_dev*.bin ${OTA_FOLDER}
 
-    "$FLASHMAP_GEN_CLI" ${OTA_FOLDER} $2 ${OTA_FOLDER}
+    "$FLASHMAP_GEN_CLI" "${OTA_FOLDER}" "$2" "${OTA_FOLDER}"
 else
     cp -f ${OT_SRCDIR}/src/bee4/$1/*.ini  ${OTA_FOLDER}
     cp -f ${OUT_FOLDER}/bin/*MP_dev*.bin  ${OTA_FOLDER}

@@ -128,7 +128,16 @@ enum
 #define MAX_TRANSMIT_BC_RETRY 0
 #endif
 
-#define MAC_TX_TIMEOUT_US       (1000000)    /* TX timeout */
+#define MAC_TX_TIMEOUT_US       (1000000)   ///< The timeout for MAC transmission in microseconds.
+
+/**
+ * @def TX_POWER_SCALING_FACTOR
+ *
+ * The scaling factor used to convert the raw TX power value from the hardware.
+ * This is specific to certain Realtek platforms.
+ *
+ */
+#define TX_POWER_SCALING_FACTOR 2
 typedef struct
 {
     otRadioFrame sReceivedFrames;
@@ -312,7 +321,7 @@ static uint8_t IsTXTimeout(uint8_t pan_idx)
     return (now > radio_inst[pan_idx].sTxTimeout) ? true : false;
 }
 
-/* when the upper layer protocol stack enable or disable the MAC functionthe,
+/* when the upper layer protocol stack enable or disable the MAC function
    this callback function should be called to maintain power management state */
 void __attribute__((weak)) mac_enable_ctrol_callback(uint8_t pan_idx, uint8_t isEnable)
 {
@@ -992,7 +1001,7 @@ otError otPlatRadioGetTransmitPower(otInstance *aInstance, int8_t *aPower)
     }
     else
     {
-        *aPower = mac_GetTXPower_patch() / 2;
+        *aPower = mac_GetTXPower_patch() / TX_POWER_SCALING_FACTOR;
     }
 
     return error;
@@ -1003,7 +1012,7 @@ otError otPlatRadioSetTransmitPower(otInstance *aInstance, int8_t aPower)
     uint8_t pan_idx = mpan_GetCurrentPANIdx();
     OT_UNUSED_VARIABLE(aInstance);
     OT_UNUSED_VARIABLE(aPower);
-    radio_inst[pan_idx].sPower = mac_SetTXPower_patch(aPower * 2);
+    radio_inst[pan_idx].sPower = mac_SetTXPower_patch(aPower * TX_POWER_SCALING_FACTOR);
     return OT_ERROR_NONE;
 }
 

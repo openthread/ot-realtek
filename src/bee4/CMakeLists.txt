@@ -57,34 +57,6 @@ else()
     setup_target(${BUILD_BOARD_TARGET})
 endif()
 
-if(${BUILD_TYPE} STREQUAL "dev")
-add_library(bee4-internal
-    # mac driver
-    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/mac_driver_ext.c
-    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/bee4/patch.c
-    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/bee4/pta.c
-    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/bee4/zb_pta_pin_mux.c
-    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/zb_pta.c
-    ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/zb_sw_pta.c
-    ${PROJECT_SOURCE_DIR}/src
-        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/config_param/config_param_handle.c
-)
-
-target_include_directories(bee4-internal
-    PRIVATE
-        ${REALTEK_SDK_INCPATH}
-        ${REALTEK_SDK_ROOT}/bsp/sdk_lib/inc
-        ${REALTEK_SDK_ROOT}/subsys/mac_driver
-        ${REALTEK_SDK_ROOT}/subsys/mac_driver/portable/bee4
-        ${REALTEK_SDK_ROOT}/subsys/mac_driver/private
-        ${REALTEK_SDK_ROOT}/subsys/mac_driver/private/bee4
-        ${CMAKE_CURRENT_SOURCE_DIR}/${BUILD_TARGET}
-        ${CMAKE_CURRENT_SOURCE_DIR}/common
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${REALTEK_SDK_ROOT}/../ROMExport/rtl87x2g/inc
-        ${REALTEK_SDK_ROOT}/../ROMExport/rtl87x2g/inc/nsc
-)
-endif()
 
 if (NOT OT_EXTERNAL_MBEDTLS)
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-mtd")
@@ -287,18 +259,6 @@ target_include_directories(openthread-bee4
         ${REALTEK_SDK_ROOT}/subsys/usb/usb_lib/inc/class
         ${REALTEK_SDK_ROOT}/subsys/usb/usb_lib/inc/composite
 )
-
-if(${BUILD_TYPE} STREQUAL "dev")
-add_custom_command(
-    TARGET openthread-bee4
-    POST_BUILD
-    COMMAND mkdir -p ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/${BUILD_TARGET} && cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libbee4-internal.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/${BUILD_TARGET}/
-    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedcrypto.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/
-    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedtls.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/
-    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedx509.a ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}/
-    COMMAND cd ${PROJECT_SOURCE_DIR}/openthread && git reset --hard HEAD && git clean -f -d
-)
-endif()
 
 ##################################################
 # matter-port
@@ -533,23 +493,6 @@ target_link_libraries(matter-cli-mtd
     ot-config
 )
 
-if(${BUILD_TYPE} STREQUAL "dev")
-add_custom_command(
-    TARGET matter-cli-mtd
-    POST_BUILD
-    COMMAND cp -f ${PROJECT_SOURCE_DIR}/src
-        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/common/threading_alt.h ${REALTEK_SDK_ROOT}/subsys/mbedtls/repo/include/
-   # COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libbee4-internal.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
-    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/../libchip_main.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
-    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libcli_uart.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
-    #COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/../liblwip.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
-    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libopenthread-bee4.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
-    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libopenthread-cli-mtd.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
-    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libopenthread-mtd.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
-    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libtcplp-mtd.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
-    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/../chip/lib/libCHIP.a ${REALTEK_SDK_ROOT}/subsys/matter/lib/switch/
-)
-endif()
 endif()
 
 ##################################################
@@ -664,41 +607,11 @@ endif()
 ##################################################
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp" OR matter_enable_cfu)
 
-if(${BUILD_TYPE} STREQUAL "dev")
-target_compile_definitions(bee4-internal PUBLIC "BUILD_RCP=1")
-
-add_library(rtk_sign
-    STATIC
-    ./internal/rtk_sign/rtk_sign.c
-)
-
-target_include_directories(rtk_sign
-    PRIVATE
-    ${PROJECT_SOURCE_DIR}/src
-        ${PROJECT_SOURCE_DIR}/third_party/Realtek/bee4/common/bee4/internal/rtk_sign
-    ${REALTEK_SDK_INCPATH}
-    ${REALTEK_SDK_ROOT}/subsys/osif/inc
-    ${REALTEK_SDK_ROOT}/subsys/mbedtls/repo/include
-)
-
-target_link_libraries(openthread-bee4
-    PRIVATE
-        rtk_sign
-        ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedcrypto.a
-)
-
-add_custom_command(
-    TARGET openthread-bee4
-    POST_BUILD
-    COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/librtk_sign.a ${REALTEK_SDK_ROOT}/lib/bee4/
-)
-else()
 target_link_libraries(openthread-bee4
     PRIVATE
         ${REALTEK_SDK_ROOT}/lib/bee4/librtk_sign.a
         ${REALTEK_SDK_ROOT}/lib/bee4/libmbedcrypto.a
 )
-endif()
 
 target_include_directories(openthread-bee4
     PRIVATE
