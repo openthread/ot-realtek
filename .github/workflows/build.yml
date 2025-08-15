@@ -37,7 +37,7 @@ on:
       - 'main'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.repository == 'rtkconnectivity/ot-realtek' && github.run_id) || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || (github.repository == 'yushuo-ko/ot-realtek' && github.run_id) || github.ref }}
   cancel-in-progress: true
 
 jobs:
