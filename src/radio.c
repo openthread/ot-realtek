@@ -1572,6 +1572,50 @@ void BEE_SleepProcess(otInstance *aInstance, uint8_t pan_idx)
     {
         tmp_ms = tmp_tx_backoff;
     }
+
+    // Default: use micro alarm if available
+    diff = tmp_us ? tmp_us - now : UINT32_MAX;
+
+    // If milli alarm is valid and triggers at least 1 ms earlier than micro alarm, use milli alarm instead
+    if (tmp_ms && (!tmp_us || tmp_us > tmp_ms + 1000))
+    {
+        diff = tmp_ms - now;
+    }
+
+    if (diff < 10000)
+    {
+        os_unlock(s);
+        goto stay_awake;
+    }
+
+    if (diff > ((MAX_BT_CLOCK_COUNTER >> 1) - 1))
+    {
+        diff = (MAX_BT_CLOCK_COUNTER >> 1) - 1;
+    }
+
+    padapter->cfg.wake_interval_en = 0;
+    padapter->cfg.stage_time_learned = 0;
+    padapter->wakeup_time_us = now_btus + diff;
+    padapter->wakeup_interval_us = 0;
+
+    padapter->enter_callback = (pan_idx == 0) ? zbpm_enter_pan0 : zbpm_enter_pan1;
+    padapter->exit_callback = (pan_idx == 0) ? zbpm_exit_pan0 : zbpm_exit_pan1;
+
+    padapter->wakeup_reason = ZBMAC_PM_WAKEUP_UNKNOWN;
+    padapter->error_code = ZBMAC_PM_ERROR_UNKNOWN;
+    padapter->power_mode = ZBMAC_DEEP_SLEEP;
+    //otLogNotePlat("sleep %u us tmp_us %llu", diff, tmp_us);
+
+    os_unlock(s);
+    return;
+
+stay_awake:
+    s = os_lock();
+    if (padapter->power_mode == ZBMAC_DEEP_SLEEP)
+    {
+        padapter->power_mode = ZBMAC_ACTIVE;
+    }
+    os_unlock(s);
 #endif
 
     if (!tmp_ms && !tmp_us)
