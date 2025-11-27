@@ -481,7 +481,10 @@ APP_FLASH_TEXT_SECTION void *__wrap__realloc_r(struct _reent *ptr, void *mem, si
     /* realloc(ptr, 0) is equivalent to free(ptr) */
     if (!newsize)
     {
-        os_mem_free(mem);
+        if (mem)
+        {
+            os_mem_free(mem);
+        }
         return NULL;
     }
 
