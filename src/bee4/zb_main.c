@@ -238,7 +238,7 @@ int32_t edscan_level2dbm(int32_t level)
 
 extern uint32_t (*lowerstack_SystemCall)(uint32_t opcode, uint32_t param, uint32_t param1,
                                          uint32_t param2);
-extern void set_zigbee_priority(uint16_t priority, uint16_t priority_min);
+extern void set_zigbee_priority(uint16_t priority, int16_t priority_min);
 extern uint32_t get_zigbee_window_slot_imp(int16_t *prio, int16_t *prio_min);
 extern void (*modem_set_zb_cca_combination)(uint8_t comb);
 
@@ -448,8 +448,37 @@ APP_FLASH_TEXT_SECTION void __wrap__free_r(struct _reent *ptr, void *addr)
     os_mem_free(addr);
 }
 
+/**
+ * @warning This realloc implementation has critical limitations due to os_mem API constraints.
+ *
+ * PROBLEM:
+ *   The underlying os_mem_alloc API does not provide a way to retrieve the original
+ *   allocation size. Standard realloc should copy min(oldsize, newsize) bytes, but
+ *   oldsize is unknown.
+ *
+ * CURRENT USAGE STATUS (as of analysis):
+ *   - OpenThread core: Does NOT use realloc (only uses Heap::CAlloc/Free)
+ *   - mbedtls: Implements its own safe resize_buffer() that correctly handles sizes
+ *   - Result: This function should never be called in practice
+ *
+ * IMPLEMENTATION DECISION:
+ *   This implementation returns NULL (allocation failure) for resize attempts to
+ *   prevent potential buffer over-read vulnerabilities. This is safer than:
+ *   - Copying newsize bytes (buffer over-read if newsize > oldsize)
+ *   - Copying arbitrary amount (data loss if amount < min(oldsize, newsize))
+ *
+ * RATIONALE:
+ *   Explicit failure is better than silent memory corruption or undefined behavior.
+ *   If this causes issues, the caller should implement size tracking like mbedtls does.
+ *
+ * @param ptr     Reentrant structure (unused)
+ * @param mem     Pointer to previously allocated memory, or NULL
+ * @param newsize New size in bytes, or 0 to free
+ * @return        Pointer to allocated memory, or NULL on failure
+ */
 APP_FLASH_TEXT_SECTION void *__wrap__realloc_r(struct _reent *ptr, void *mem, size_t newsize)
 {
+    /* realloc(ptr, 0) is equivalent to free(ptr) */
     if (!newsize)
     {
         if (mem)
@@ -459,21 +488,23 @@ APP_FLASH_TEXT_SECTION void *__wrap__realloc_r(struct _reent *ptr, void *mem, si
         return NULL;
     }
 
-    void *p;
-    p = os_mem_alloc(RAM_TYPE_DATA_ON, newsize);
-    if (p)
+    /* realloc(NULL, size) is equivalent to malloc(size) */
+    if (!mem)
     {
-        // WARNING: The size of the original block `mem` is unknown.
-        // Copying `newsize` bytes is only safe if `newsize` is less than or
-        // equal to the original size. If `newsize` is larger, this will
-        // read beyond the bounds of `mem`.
-        if (mem)
-        {
-            __wrap_memcpy(p, mem, newsize);
-            os_mem_free(mem);
-        }
+        return os_mem_alloc(RAM_TYPE_DATA_ON, newsize);
     }
-    return p;
+
+    /*
+     * For mem != NULL && newsize != 0:
+     * Cannot safely resize existing allocation without knowing original size.
+     * Return NULL to indicate failure rather than risk memory corruption.
+     *
+     * If this causes issues, the caller should either:
+     * 1. Track allocation sizes internally (like mbedtls resize_buffer does)
+     * 2. Use explicit alloc+copy+free with known sizes
+     * 3. Avoid realloc and use fixed-size allocations
+     */
+    return NULL;
 }
 
 APP_FLASH_TEXT_SECTION void *__wrap__calloc_r(struct _reent *ptr, size_t size, size_t len)

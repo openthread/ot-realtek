@@ -26,36 +26,31 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 
-if(${RT_PLATFORM} STREQUAL "rtl8852d")
-    include(${PROJECT_SOURCE_DIR}/cmake/fetch_openthread.cmake)
-endif()
+add_library(bee4-peripheral
+    # peripheral
+    "${REALTEK_SDK_ROOT}/bsp/driver/pinmux/src/rtl87x2g/rtl_pinmux.c"
+    "${REALTEK_SDK_ROOT}/bsp/driver/rcc/src/rtl87x2g/rtl_rcc.c"
+    "${REALTEK_SDK_ROOT}/bsp/driver/nvic/src/rtl87x2g/rtl_nvic.c"
+    "${REALTEK_SDK_ROOT}/bsp/driver/tim/src/rtl_common/rtl_tim.c"
+    "${REALTEK_SDK_ROOT}/bsp/driver/uart/src/rtl_common/rtl_uart.c"
+    "${REALTEK_SDK_ROOT}/bsp/driver/dma/src/rtl_common/rtl_gdma.c"
+    "${REALTEK_SDK_ROOT}/bsp/driver/gpio/src/rtl_common/rtl_gpio.c"
+)
 
-if(${RT_PLATFORM} STREQUAL "bee4")
-    set(REALTEK_SDK_ROOT
-        ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk
-    )
-    set(REALTEK_SDK_INCPATH
-        ${REALTEK_SDK_ROOT}/subsys/freertos
-        ${REALTEK_SDK_ROOT}/subsys/osif/inc
-        ${REALTEK_SDK_ROOT}/subsys/bluetooth/bt_host/inc
-        ${REALTEK_SDK_ROOT}/include/rtl87x2g
-        ${REALTEK_SDK_ROOT}/include/rtl87x2g/nsc
-        ${REALTEK_SDK_ROOT}/include/rtl87x2g/cmsis/Core/Include
-        ${REALTEK_SDK_ROOT}/bsp/driver/
-        ${REALTEK_SDK_ROOT}/bsp/driver/pinmux/inc
-        ${REALTEK_SDK_ROOT}/bsp/driver/rcc/inc
-        ${REALTEK_SDK_ROOT}/bsp/driver/nvic/inc
-        ${REALTEK_SDK_ROOT}/bsp/driver/uart/inc
-        ${REALTEK_SDK_ROOT}/bsp/driver/dma/inc
-        ${REALTEK_SDK_ROOT}/bsp/driver/gpio/inc
-        ${REALTEK_SDK_ROOT}/bsp/driver/spi/inc
-        ${REALTEK_SDK_ROOT}/bsp/driver/i2c/inc
-        ${REALTEK_SDK_ROOT}/bsp/driver/tim/inc
-        ${REALTEK_SDK_ROOT}/bsp/driver/wdt/inc
-        ${REALTEK_SDK_ROOT}/bsp/driver/ir/inc
-        ${REALTEK_SDK_ROOT}/bsp/driver/project/rtl87x2g/inc
-        ${REALTEK_SDK_ROOT}/bsp/sdk_lib/inc
-        ${REALTEK_SDK_ROOT}/bsp/sdk_lib/inc_int
-        ${REALTEK_SDK_ROOT}/bsp/power
-    )
-endif()
+set_target_properties(
+    bee4-peripheral
+    PROPERTIES
+        C_STANDARD 99
+)
+
+target_link_directories(bee4-peripheral
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/${BUILD_TARGET}
+        ${PROJECT_SOURCE_DIR}/lib/${RT_PLATFORM}
+)
+
+target_include_directories(bee4-peripheral
+    PRIVATE
+        ${REALTEK_SDK_INCPATH}
+)
+
