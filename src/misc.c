@@ -30,6 +30,14 @@
 
 #include "platform-bee.h"
 
+#if defined(mac_read_reg)
+#undef mac_read_reg
+#endif
+
+#if defined(mac_write_reg)
+#undef mac_write_reg
+#endif
+
 extern int gPlatformPseudoResetLevel;
 extern int gPlatformPseudoResetLevel_zb;
 extern uint8_t mpan_GetCurrentPANIdx(void);
@@ -73,7 +81,7 @@ otPlatResetReason otPlatGetResetReason(otInstance *aInstance)
     case RESET_REASON_HW:
         reason = OT_PLAT_RESET_REASON_POWER_ON;
         break;
-#ifdef RT_PLATFORM_BEE4
+#ifdef RT_PLATFORM_RTL87X2G
     case RESET_REASON_WDT_TIMEOUT:
 #else
     case RESET_REASON_WDG_TIMEOUT:
@@ -96,32 +104,5 @@ otPlatResetReason otPlatGetResetReason(otInstance *aInstance)
 void otPlatWakeHost(void)
 {
     // TODO: implement an operation to wake the host from sleep state.
-}
-
-void mac_read_reg(uint32_t addr, uint8_t *value)
-{
-    uint32_t i;
-    uint8_t *pbuf = (uint8_t *)addr;
-
-    for (i = 0; i < 16; i++)
-    {
-        dbg_sprintf((char *)(value + i * 3), "%02x ", pbuf[i]);
-    }
-    value[48] = '\0';
-}
-
-void mac_write_reg(const char *addr, const char *value)
-{
-    uint32_t dest_addr;
-    uint8_t write_val;
-
-    /* Parse hexadecimal address string (e.g., "0x40000000") */
-    dest_addr = strtoul(addr, NULL, 16);
-
-    /* Parse hexadecimal value string (e.g., "0xFF") */
-    write_val = (uint8_t)strtoul(value, NULL, 16);
-
-    /* Write single byte to the specified memory address */
-    *(volatile uint8_t *)(dest_addr) = write_val;
 }
 

@@ -28,14 +28,13 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 
-BUILD_BANK=$1
-BUILD_TARGET=$2
+BUILD_BANK="$1"
+BUILD_TARGET="$2"
+RT_PLATFORM="$3"
+LD_SCRIPT="$4"
 
 if [ "${BUILD_BANK}" = "bank0" ]; then
-   arm-none-eabi-gcc -D BUILD_BANK=0 -E -P -x c "${OT_SRCDIR}/src/bee4/${BUILD_TARGET}/app.ld" -o "${OT_SRCDIR}/src/bee4/${BUILD_TARGET}/app.ld.gen"
+   arm-none-eabi-gcc -D BUILD_BANK=0 -E -P -x c "${OT_SRCDIR}/src/${RT_PLATFORM}/${BUILD_TARGET}/${LD_SCRIPT}" -o "${OT_SRCDIR}/src/${RT_PLATFORM}/${BUILD_TARGET}/app.ld.gen"
 elif [ "${BUILD_BANK}" = "bank1" ]; then
-   arm-none-eabi-gcc -D BUILD_BANK=1 -E -P -x c "${OT_SRCDIR}/src/bee4/${BUILD_TARGET}/app.ld" -o "${OT_SRCDIR}/src/bee4/${BUILD_TARGET}/app.ld.gen"
-else
-   echo "Error: Invalid BUILD_BANK value '${BUILD_BANK}'. Expected 'bank0' or 'bank1'."
-   exit 1
+   arm-none-eabi-gcc -D BUILD_BANK=1 -E -P -x c "${OT_SRCDIR}/src/${RT_PLATFORM}/${BUILD_TARGET}/${LD_SCRIPT}" -o "${OT_SRCDIR}/src/${RT_PLATFORM}/${BUILD_TARGET}/app.ld.gen"
 fi

@@ -198,7 +198,7 @@ typedef struct
     volatile uint16_t rx_head;
     rx_item_t rx_queue[RX_BUF_SIZE];
     rx_item_t ack_item;
-#if defined(RT_PLATFORM_BEE3PLUS)
+#if defined(RT_PLATFORM_RTL8752H)
     rx_item_t ack_received;
 #endif
     bool ack_fp;
@@ -328,7 +328,7 @@ typedef struct
 
 #ifdef _IS_FPGA_
 #else
-#ifdef RT_PLATFORM_BEE3PLUS
+#ifdef RT_PLATFORM_RTL8752H
 extern bool (*hw_sha256)(uint8_t *input, uint32_t byte_len, uint32_t *result, int mode);
 #else
 extern bool hw_sha256(uint8_t *input, uint32_t byte_len, uint32_t *result, int mode);
@@ -1858,7 +1858,7 @@ void BEE_RadioTx(otInstance *aInstance, uint8_t pan_idx)
                               radio_inst[pan_idx].sTransmitCcaFailCnt);
                 if (otMacFrameIsVersion2015(&radio_inst[pan_idx].sTransmitFrame))
                 {
-#if defined(RT_PLATFORM_BEE3PLUS)
+#if defined(RT_PLATFORM_RTL8752H)
                     uint8_t ie_hdr_len;
                     uint8_t *p_frame;
                     uint8_t *p_ie_hdr;
@@ -2804,7 +2804,7 @@ APP_RAM_TEXT_SECTION void rxdone_handler(uint8_t pan_idx, uint32_t arg)
 
     if (FRAME_TYPE_ACK == frame_type)
     {
-#if defined(RT_PLATFORM_BEE3PLUS)
+#if defined(RT_PLATFORM_RTL8752H)
         mac_Rx(radio_inst[pan_idx].ack_received.sReceivedPsdu);
 #else
         mac_Rx(radio_inst[pan_idx].ack_item.sReceivedPsdu);

@@ -28,6 +28,7 @@
 #
 
 CMAKE_TARGET="$2"
+RT_PLATFORM="$3"
 
 arm-none-eabi-objdump -S -C -l "${OUT_FOLDER}/bin/${CMAKE_TARGET}" > "${OUT_FOLDER}/bin/${CMAKE_TARGET}.asm"
 
@@ -44,13 +45,41 @@ fi
 arm-none-eabi-objcopy -O binary -S "${OUT_FOLDER}/bin/${CMAKE_TARGET}" "${BIN_FILE}" --remove-section=App.trace
 arm-none-eabi-objcopy -O binary -S "${OUT_FOLDER}/bin/${CMAKE_TARGET}" "${TRACE_FILE}" --only-section=App.trace
 
+if [ "$(uname -s)" = "Darwin" ]; then
+    PREPEND_HEADER="${REALTEK_SDK_PATH}/tools/prepend_header/prepend_header.macOS"
+    MD5_TOOL="${REALTEK_SDK_PATH}/tools/md5/md5.macOS"
+elif [ "$(uname -s)" = "Linux" ]; then
+    if [ "${RT_PLATFORM}" = "rtl87x2g" ]; then
+        PREPEND_HEADER="${REALTEK_SDK_PATH}/tools/prepend_header/prepend_header"
+        MD5_TOOL="${REALTEK_SDK_PATH}/tools/md5/MD5"
+    elif [ "${RT_PLATFORM}" = "rtl8752h" ]; then
+        PREPEND_HEADER="${REALTEK_SDK_PATH}/tool/Gadgets/prepend_header/prepend_header"
+        MD5_TOOL="${REALTEK_SDK_PATH}/tool/Gadgets/md5/md5"
+    fi
+else
+    if [ "${RT_PLATFORM}" = "rtl87x2g" ]; then
+        PREPEND_HEADER="${REALTEK_SDK_PATH}/tools/prepend_header/prepend_header.exe"
+        MD5_TOOL="${REALTEK_SDK_PATH}/tools/md5/md5.exe"
+    elif [ "${RT_PLATFORM}" = "rtl8752h" ]; then
+        PREPEND_HEADER="${REALTEK_SDK_PATH}/tool/Gadgets/prepend_header/prepend_header.exe"
+        MD5_TOOL="${REALTEK_SDK_PATH}/tool/Gadgets/md5/md5.exe"
+    fi
+fi
 
-chmod +x "${REALTEK_SDK_PATH}/tools/prepend_header/prepend_header"
-chmod +x "${REALTEK_SDK_PATH}/tools/md5/MD5"
+chmod +x "$PREPEND_HEADER"
+chmod +x "$MD5_TOOL"
 
-"${REALTEK_SDK_PATH}/tools/prepend_header/prepend_header" -t app_code -b 15 -p "$BIN_FILE" -m 1 \
-    -i "${OT_SRCDIR}/src/bee4/common/mp.ini" \
-    -r "${REALTEK_SDK_PATH}/tools/keys/rtk_ecdsa.pem" \
-    -a "${REALTEK_SDK_PATH}/tools/keys/key.json"
+if [ "${RT_PLATFORM}" = "rtl87x2g" ]; then
+    "$PREPEND_HEADER" -t app_code -b 15 -p "$BIN_FILE" -m 1 \
+        -i "${OT_SRCDIR}/src/${RT_PLATFORM}/common/mp.ini" \
+        -r "${REALTEK_SDK_PATH}/tools/keys/rtk_ecdsa.pem" \
+        -a "${REALTEK_SDK_PATH}/tools/keys/key.json"
+elif [ "${RT_PLATFORM}" = "rtl8752h" ]; then
+    "$PREPEND_HEADER" -t app_code -b 16 -p "$BIN_FILE" -m 1 \
+        -i "${OT_SRCDIR}/src/${RT_PLATFORM}/common/mp.ini" \
+        -r "${REALTEK_SDK_PATH}/tool/Gadgets/rtk_rsa.pem" \
+        -a "${REALTEK_SDK_PATH}/tool/Gadgets/key.json" \
+        -c sha256 --aesmode CTR
+fi
 
-"${REALTEK_SDK_PATH}/tools/md5/MD5" "${MP_FILE}"
+"$MD5_TOOL" ${MP_FILE}

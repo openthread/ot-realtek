@@ -63,8 +63,7 @@ apply_patch()
 is_create_ld_gen()
 {
     local ldgentargets=("rtl8777g" "rtl8777g_s" "evb" "evb_dual" \
-    "rtl8777g_cert" "rtl8777g_test" "rtl8771htv" "rtl8771htv_zboss" \
-    "rtl8752h")
+    "rtl8777g_cert" "rtl8777g_test")
 
     for ldgentarget in "${ldgentargets[@]}"; do
         if [ "${board_target}" == "${ldgentarget}" ]; then
@@ -106,13 +105,15 @@ build()
 
 pre_build()
 {
+    # for rtl87x2g
     if is_create_ld_gen >/dev/null 2>&1; then
-       ${OT_SRCDIR}/script/pre_build ${BUILD_BANK} ${target} ${platform}
+       ${OT_SRCDIR}/script/pre_build ${BUILD_BANK} ${target} ${platform} "app.ld"
     fi
 }
 
 post_build()
 {
+    # for rtl87x2g
     if is_create_ld_gen >/dev/null 2>&1; then
         ${OT_SRCDIR}/script/post_build ${BUILD_BANK} ${OT_CMAKE_NINJA_TARGET} ${platform}
         rm -f ${OT_SRCDIR}/src/${platform}/${target}/*.gen
@@ -122,10 +123,10 @@ post_build()
 set_sdk_path()
 {
    case "${platform}" in
-        bee4)
+        rtl87x2g)
             export REALTEK_SDK_PATH="${OT_SRCDIR}/third_party/Realtek/rtl87x2g_sdk"
             ;;
-        bee3plus)
+        rtl8752h)
             export REALTEK_SDK_PATH="${OT_SRCDIR}/third_party/Realtek/rtl87x2g_sdk"
             ;;
         *)
@@ -153,7 +154,7 @@ main()
     options+=("-DBUILD_TYPE=${build_type}")
     options+=("-DCMAKE_BUILD_TYPE=Release")
     case "${platform}" in
-        bee4)
+        rtl87x2g)
         options+=("-DRT_PLATFORM=${platform}")
         options+=("-DBUILD_BOARD_TARGET=${board_target}")
         options+=("-DBUILD_TARGET=${target}")
@@ -183,18 +184,13 @@ main()
                 options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
                 options+=("-DENABLE_CLI=OFF -DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
                 options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/src/${platform}/example_vendor_hook.cpp")
-                case "${build_type}" in
-                    sdk)
-                        options+=("-DOT_EXTERNAL_MBEDTLS=bee4-mbedtls")
-                        ;;
-                esac
                 ;;
             *)
                 ;;
         esac
         options+=("-DOT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET}")
         ;;
-        bee3plus)
+        rtl8752h)
         options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
         options+=("-DRT_PLATFORM=${platform}")
         #options+=("-DBUILD_BOARD_TARGET=${board_target}")
@@ -226,11 +222,6 @@ main()
                         ;;
                 esac
                 options+=("-DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
-                case "${build_type}" in
-                    dev)
-                        tar zxvf ${OT_SRCDIR}/script/v3.0.0.tar.gz -C ${OT_SRCDIR}/openthread/third_party/mbedtls/
-                        ;;
-                esac
                 ;;
             *)
                 ;;
@@ -245,17 +236,6 @@ main()
     build "${options[@]}"
     post_build
 
-    if [ "${OT_CMAKE_NINJA_TARGET}" == "ot-rcp" ] && [ ${board_target} == "rtl8752h" ];then
-        grep "__libbee3plus_internal_length" ${OT_SRCDIR}/build/ot-rcp.map
-        grep "__libbee3plus_peripheral_length" ${OT_SRCDIR}/build/ot-rcp.map
-        grep "__libopenthread_bee3plus_length" ${OT_SRCDIR}/build/ot-rcp.map
-        grep "__libopenthread_radio_length" ${OT_SRCDIR}/build/ot-rcp.map
-        grep "__libopenthread_rcp_length" ${OT_SRCDIR}/build/ot-rcp.map
-        grep "__libopenthread_spinel_rcp_length" ${OT_SRCDIR}/build/ot-rcp.map
-        grep "__libopenthread_hdlc_length" ${OT_SRCDIR}/build/ot-rcp.map
-        grep "__rw_length" ${OT_SRCDIR}/build/ot-rcp.map
-        grep "__bss_length__" ${OT_SRCDIR}/build/ot-rcp.map
-    fi
 }
 
 main "$@"
