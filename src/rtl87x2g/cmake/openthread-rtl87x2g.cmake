@@ -93,7 +93,6 @@ if(${BUILD_TYPE} STREQUAL "dev")
 else()
     if (${BUILD_BOARD_TARGET} STREQUAL "rtl8777g")
         target_link_libraries(openthread-rtl87x2g PRIVATE
-            "${REALTEK_SDK_ROOT}/lib/bee4/rtl8777g/libbee4-internal.a"
             "${REALTEK_SDK_ROOT}/lib/bee4/libbee4-internal.a"
         )
         target_link_options(openthread-rtl87x2g PUBLIC
