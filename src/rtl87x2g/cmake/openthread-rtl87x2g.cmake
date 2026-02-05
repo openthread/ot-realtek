@@ -41,6 +41,7 @@ add_library(openthread-rtl87x2g
     system_rtl.c
     zb_main.c
     thread_task.c
+    "${REALTEK_SDK_ROOT}/subsys/mbedtls/port/src/threading_alt.c"
     # crypto
     # app
     xmodem.c
@@ -67,7 +68,6 @@ target_link_directories(openthread-rtl87x2g
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/${BUILD_TARGET}
         ${OT_REALTEK_ROOT}/lib/${RT_PLATFORM}/${BUILD_TARGET_VALID}
-        ${REALTEK_SDK_ROOT}/lib/${RT_PLATFORM}
         ${REALTEK_SDK_ROOT}/subsys/lwip/for_matter/lib
 )
 
@@ -75,10 +75,13 @@ target_link_libraries(openthread-rtl87x2g
     PRIVATE
         ${OT_MBEDTLS}
         ot-config
+        # rtl87x2g-internal  # Removed - using .axf directly instead
         rtl87x2g-peripheral
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_lib/lib/rtl87x2g/gcc/libusb.a"
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_hal/lib/rtl87x2g/gcc/libusb_hal.a"
         "${REALTEK_SDK_ROOT}/subsys/bluetooth/gap_ext/lib/rtl87x2g/bt_host_0_0/gcc/libgap_utils.a"
+        "${REALTEK_SDK_ROOT}//lib/rtl87x2g/${BOARD}/librtl87x2g-internal.a"
+        "${REALTEK_SDK_ROOT}/subsys/mac_driver/portable/rtl87x2g/rtl87x2g-internal.axf"
         "${REALTEK_SDK_ROOT}/bsp/driver/driver_lib/lib/rtl87x2g/gcc/librtl87x2g_io.a"
         "${REALTEK_SDK_ROOT}/bsp/sdk_lib/lib/rtl87x2g/gcc/librtl87x2g_sdk.a"
         "${REALTEK_SDK_ROOT}/bin/rtl87x2g/rom_lib/libROM_NS.a"
@@ -86,37 +89,9 @@ target_link_libraries(openthread-rtl87x2g
         "${REALTEK_SDK_ROOT}/bin/rtl87x2g/rom_lib/liblowerstack.a"
 )
 
-if(${BUILD_TYPE} STREQUAL "dev")
-    target_link_libraries(openthread-rtl87x2g PRIVATE
-        rtl87x2g-internal
-    )
-else()
-    if (${BUILD_BOARD_TARGET} STREQUAL "rtl8777g")
-        target_link_libraries(openthread-rtl87x2g PRIVATE
-            "${REALTEK_SDK_ROOT}/lib/bee4/libbee4-internal.a"
-        )
-        target_link_options(openthread-rtl87x2g PUBLIC
-            "-Wl,--allow-multiple-definition"
-        )
-    elseif (${BUILD_BOARD_TARGET} STREQUAL "rtl8771guv")
-         target_link_libraries(openthread-rtl87x2g PRIVATE
-            "${REALTEK_SDK_ROOT}/lib/bee4/rtl8771guv/libbee4-internal.a"
-        )
-    elseif (${BUILD_BOARD_TARGET} STREQUAL "rtl8771gtv")
-         target_link_libraries(openthread-rtl87x2g PRIVATE
-            "${REALTEK_SDK_ROOT}/lib/bee4/rtl8771gtv/libbee4-internal.a"
-        )           
-    else()
-        target_link_libraries(openthread-rtl87x2g PRIVATE
-            "${REALTEK_SDK_ROOT}/lib/bee4/libbee4-internal.a"
-        )
-    endif()
-endif()
-
 target_link_options(openthread-rtl87x2g
     PUBLIC
         -T${LD_FILE}
-        -T${REALTEK_SDK_ROOT}/subsys/mac_driver/portable/bee4/bee4-internal.axf
         -Wl,--no-wchar-size-warning
         -Wl,--wrap,_malloc_r
         -Wl,--wrap,_free_r
@@ -131,6 +106,7 @@ target_link_options(openthread-rtl87x2g
         -Wl,--wrap,mac_RstRF_rom
         -Wl,--gc-sections
         -Wl,--print-memory-usage
+        -Wl,--no-warn-rwx-segments
 )
 
 target_compile_definitions(openthread-rtl87x2g
@@ -138,6 +114,7 @@ target_compile_definitions(openthread-rtl87x2g
         ${OT_PLATFORM_DEFINES}
         "BUILD_WITHOUT_FTL=1"
         "RT_PLATFORM_RTL87X2G"
+        "MBEDTLS_ALLOW_PRIVATE_ACCESS"
 )
 
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd")
@@ -168,11 +145,16 @@ target_compile_options(openthread-rtl87x2g
 )
 
 target_include_directories(openthread-rtl87x2g
+    BEFORE PRIVATE
+        ${REALTEK_SDK_ROOT}/subsys/mbedtls/port/inc
+)
+
+target_include_directories(openthread-rtl87x2g
     PRIVATE
         ${OT_PUBLIC_INCLUDES}
         ${OT_REALTEK_ROOT}/src/core
         ${OT_REALTEK_ROOT}/openthread/examples/platforms
-        ${OT_REALTEK_ROOT}/src
+        ${OT_REALTEK_ROOT}/vendor
         ${REALTEK_SDK_INCPATH}
         ${REALTEK_SDK_ROOT}/subsys/mac_driver
         ${REALTEK_SDK_ROOT}/subsys/mac_driver/portable/rtl87x2g
@@ -184,6 +166,14 @@ target_include_directories(openthread-rtl87x2g
 )
 
 if(${BUILD_TYPE} STREQUAL "dev")
+    # Add explicit dependency on mbedtls libraries to ensure they are built before POST_BUILD commands
+    if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-ftd" OR
+       ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-mtd" OR
+       ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
+       ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd")
+        add_dependencies(openthread-rtl87x2g mbedcrypto mbedtls mbedx509)
+    endif()
+
     add_custom_command(
         TARGET openthread-rtl87x2g
         POST_BUILD
@@ -307,40 +297,41 @@ endif()
 ##################################################
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp" OR matter_enable_cfu)
 
-    if(${BUILD_TYPE} STREQUAL "dev")
-        target_compile_definitions(rtl87x2g-internal PUBLIC "BUILD_RCP=1")
+    if(NOT matter_enable_cfu)
+        if(${BUILD_TYPE} STREQUAL "dev")
+            target_compile_definitions(rtl87x2g-internal PUBLIC "BUILD_RCP=1")
+        
+            add_library(rtk_sign
+                STATIC
+                ./internal/rtk_sign/rtk_sign.c
+            )
 
-        add_library(rtk_sign
-            STATIC
-            ./internal/rtk_sign/rtk_sign.c
-        )
+            target_include_directories(rtk_sign
+                PRIVATE
+                ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/rtk_sign
+                ${REALTEK_SDK_INCPATH}
+                ${REALTEK_SDK_ROOT}/subsys/osif/inc
+                ${REALTEK_SDK_ROOT}/subsys/mbedtls/repo/include
+            )
 
+            target_link_libraries(openthread-rtl87x2g
+                PRIVATE
+                    rtk_sign
+                    ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedcrypto.a
+            )
 
-        target_include_directories(rtk_sign
-            PRIVATE
-            ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/rtk_sign
-            ${REALTEK_SDK_INCPATH}
-            ${REALTEK_SDK_ROOT}/subsys/osif/inc
-            ${REALTEK_SDK_ROOT}/subsys/mbedtls/repo/include
-        )
-
-        target_link_libraries(openthread-rtl87x2g
-            PRIVATE
-                rtk_sign
-                ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedcrypto.a
-        )
-
-        add_custom_command(
-            TARGET openthread-rtl87x2g
-            POST_BUILD
-            COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/librtk_sign.a ${PROJECT_SOURCE_DIR}/lib/rtl87x2g/
-        )
-    else()
-        target_link_libraries(openthread-rtl87x2g
-            PRIVATE
-                ${PROJECT_SOURCE_DIR}/lib/rtl87x2g/librtk_sign.a
-                ${PROJECT_SOURCE_DIR}/lib/rtl87x2g/libmbedcrypto.a
-        )
+            add_custom_command(
+                TARGET openthread-rtl87x2g
+                POST_BUILD
+                COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/librtk_sign.a ${OT_REALTEK_ROOT}/lib/rtl87x2g/
+            )
+        else()
+            target_link_libraries(openthread-rtl87x2g
+                PRIVATE
+                    ${PROJECT_SOURCE_DIR}/lib/rtl87x2g/librtk_sign.a
+                    ${PROJECT_SOURCE_DIR}/lib/rtl87x2g/libmbedcrypto.a
+            )
+        endif()
     endif()
 
     target_include_directories(openthread-rtl87x2g

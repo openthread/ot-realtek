@@ -50,6 +50,11 @@
 
 #define MBEDTLS_THREADING_C
 #define MBEDTLS_THREADING_ALT
+#define MBEDTLS_ECP_ALT
+#define MBEDTLS_ECP_LIGHT
+#define MBEDTLS_ECDSA_SIGN_ALT
+#define MBEDTLS_ECDSA_VERIFY_ALT
+#define MBEDTLS_ENTROPY_HARDWARE_ALT
 
 #include "crypto_engine_nsc.h"
 

@@ -30,14 +30,6 @@
 
 #include "platform-bee.h"
 
-#if defined(mac_read_reg)
-#undef mac_read_reg
-#endif
-
-#if defined(mac_write_reg)
-#undef mac_write_reg
-#endif
-
 extern int gPlatformPseudoResetLevel;
 extern int gPlatformPseudoResetLevel_zb;
 extern uint8_t mpan_GetCurrentPANIdx(void);

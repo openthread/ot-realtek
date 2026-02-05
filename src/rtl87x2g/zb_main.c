@@ -354,9 +354,10 @@ APP_FLASH_TEXT_SECTION void *__wrap_memcpy(void *s1, const void *s2, size_t n)
     /* Pick up any residual with a byte copier.  */
     dst = (char *)aligned_dst;
     src = (const char *)aligned_src;
-    while (n--)
+    while (n > 0)
     {
         *dst++ = *src++;
+        n--;
     }
 
     return s1;

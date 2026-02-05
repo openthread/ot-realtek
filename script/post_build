@@ -32,14 +32,20 @@ RT_PLATFORM="$3"
 
 arm-none-eabi-objdump -S -C -l "${OUT_FOLDER}/bin/${CMAKE_TARGET}" > "${OUT_FOLDER}/bin/${CMAKE_TARGET}.asm"
 
-if [ "$1" = "bank1" ]; then
-    BIN_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank1.bin"
-    MP_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank1_MP.bin"
-    TRACE_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank1.trace"
+if [ "${CMAKE_TARGET}" = "ot-rcp" ]; then
+    BIN_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}.bin"
+    MP_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_MP.bin"
+    TRACE_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}.trace"
 else
-    BIN_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank0.bin"
-    MP_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank0_MP.bin"
-    TRACE_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank0.trace"
+    if [ "$1" = "bank1" ]; then
+        BIN_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank1.bin"
+        MP_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank1_MP.bin"
+        TRACE_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank1.trace"
+    else
+        BIN_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank0.bin"
+        MP_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank0_MP.bin"
+        TRACE_FILE="${OUT_FOLDER}/bin/${CMAKE_TARGET}_bank0.trace"
+    fi
 fi
 
 arm-none-eabi-objcopy -O binary -S "${OUT_FOLDER}/bin/${CMAKE_TARGET}" "${BIN_FILE}" --remove-section=App.trace

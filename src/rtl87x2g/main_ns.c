@@ -34,8 +34,6 @@
 #include <trace.h>
 #include <gap.h>
 #include <gap_adv.h>
-#include <gap_bond_le.h>
-#include <profile_server.h>
 #include <gap_msg.h>
 #include "board.h"
 #include "mem_config.h"
@@ -107,37 +105,41 @@ void System_Handler(void)
 #if defined(BUILD_MATTER)
     if (System_WakeUpInterruptValue(BUTTON_SW1) == SET)
     {
-        //DBG_DIRECT("SW1 Wake up");
+        DBG_DIRECT("SW1 Wake up");
         Pad_ClearWakeupINTPendingBit(BUTTON_SW1);
         System_WakeUpPinDisable(BUTTON_SW1);
         matter_gpio_disallow_to_enter_dlps();
+        matter_gpio_timer_restart();
         app_wakeup_reason = APP_WAKEUP_REASON_BUTTON_SW1;
     }
 
     if (System_WakeUpInterruptValue(BUTTON_SW2) == SET)
     {
-        //DBG_DIRECT("SW2 Wake up");
+        DBG_DIRECT("SW2 Wake up");
         Pad_ClearWakeupINTPendingBit(BUTTON_SW2);
         System_WakeUpPinDisable(BUTTON_SW2);
         matter_gpio_disallow_to_enter_dlps();
+        matter_gpio_timer_restart();
         app_wakeup_reason = APP_WAKEUP_REASON_BUTTON_SW2;
     }
 
     if (System_WakeUpInterruptValue(BUTTON_SW3) == SET)
     {
-        //DBG_DIRECT("SW3 Wake up");
+        DBG_DIRECT("SW3 Wake up");
         Pad_ClearWakeupINTPendingBit(BUTTON_SW3);
         System_WakeUpPinDisable(BUTTON_SW3);
         matter_gpio_disallow_to_enter_dlps();
+        matter_gpio_timer_restart();
         app_wakeup_reason = APP_WAKEUP_REASON_BUTTON_SW3;
     }
 
     if (System_WakeUpInterruptValue(BUTTON_SW4) == SET)
     {
-        //DBG_DIRECT("SW4 Wake up");
+        DBG_DIRECT("SW4 Wake up");
         Pad_ClearWakeupINTPendingBit(BUTTON_SW4);
         System_WakeUpPinDisable(BUTTON_SW4);
         matter_gpio_disallow_to_enter_dlps();
+        matter_gpio_timer_restart();
         app_wakeup_reason = APP_WAKEUP_REASON_BUTTON_SW4;
     }
 #endif

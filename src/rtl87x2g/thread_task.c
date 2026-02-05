@@ -31,7 +31,6 @@
  *============================================================================*/
 #include <os_msg.h>
 #include <os_task.h>
-#include <os_sched.h>
 #include <os_sync.h>
 #include <trace.h>
 
@@ -48,6 +47,10 @@
 #include "zb_tst_cfg.h"
 #include "dbg_printf.h"
 #include "mem_config.h"
+#include "crypto_hw_locks.h"
+
+// Forward declaration from mbedtls threading_alt
+extern void mbedtls_threading_alt_init(void);
 
 /** @addtogroup  MAC_TASK_DEMO
     * @{
@@ -72,6 +75,7 @@
 /*============================================================================*
  *                              Variables
  *============================================================================*/
+
 void *thread_task_handle;   //!< MAC Task handle
 void *zigbee_task_handle;   //!< MAC Task handle
 void *matter_task_handle;   //!< MAC Task handle
@@ -79,53 +83,6 @@ void *matter_task_handle;   //!< MAC Task handle
 /*============================================================================*
  *                              Functions
  *============================================================================*/
-#if BUILD_NCP
-#else
-#include "mbedtls/threading.h"
-#include "threading_alt.h"
-
-void bee_mutex_init(mbedtls_threading_mutex_t *mutex)
-{
-    os_mutex_create(&mutex->mutex);
-    if (mutex->mutex) { mutex->flag = 1; }
-    else { mutex->flag = 0; }
-}
-
-void bee_mutex_free(mbedtls_threading_mutex_t *mutex)
-{
-    if (mutex != NULL && mutex->mutex != NULL && mutex->flag)
-    {
-        os_mutex_delete(mutex->mutex);
-        mutex->flag = 0;
-    }
-}
-
-int bee_mutex_lock(mbedtls_threading_mutex_t *mutex)
-{
-    if (mutex->flag)
-    {
-        os_mutex_take(mutex->mutex, 0xffffffff);
-        return 0;
-    }
-    else
-    {
-        return MBEDTLS_ERR_THREADING_MUTEX_ERROR;
-    }
-}
-
-int bee_mutex_unlock(mbedtls_threading_mutex_t *mutex)
-{
-    if (mutex->flag)
-    {
-        os_mutex_give(mutex->mutex);
-        return 0;
-    }
-    else
-    {
-        return MBEDTLS_ERR_THREADING_MUTEX_ERROR;
-    }
-}
-#endif
 
 extern void uart_init_internal(void);
 extern int main(int argc, char *argv[]);
@@ -133,10 +90,10 @@ extern int main(int argc, char *argv[]);
 void thread_test_task(void *p_param)
 {
     DBG_DIRECT("%s", __func__);
-#if BUILD_NCP
-#else
-    mbedtls_threading_set_alt(bee_mutex_init, bee_mutex_free, bee_mutex_lock, bee_mutex_unlock);
-#endif
+
+    mbedtls_threading_alt_init();
+    crypto_hw_locks_init();
+
     uart_init_internal();
     main(0, NULL);
     while (1);
@@ -159,7 +116,13 @@ void matter_test_task(void *p_param)
     os_alloc_secure_ctx(1024);
 #endif
     DBG_DIRECT("%s", __func__);
-    mbedtls_threading_set_alt(bee_mutex_init, bee_mutex_free, bee_mutex_lock, bee_mutex_unlock);
+
+#if BUILD_NCP
+#else
+    mbedtls_threading_alt_init();
+    crypto_hw_locks_init();
+#endif
+
     uart_init_internal();
     InitGPIO();
     ChipTest();

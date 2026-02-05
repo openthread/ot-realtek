@@ -33,16 +33,12 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-
 #include "platform-bee.h"
 #include "mac_driver.h"
 #include "mac_driver_mpan.h"
-#include "common/logging.hpp"
-
 #include <openthread/config.h>
 #include <openthread/platform/alarm-micro.h>
 #include <openthread/platform/alarm-milli.h>
-#include <openthread/platform/diag.h>
 #include <openthread/platform/time.h>
 
 //------------------------------------------------------------------------------
@@ -54,7 +50,11 @@
 extern void pm_check_inactive(const char *callerStr, bool wakeup);
 
 // Minimum ahead-of-time (in us) required to program HW timer; otherwise, fire immediately.
-static const uint32_t kMinScheduleAdvanceUs = 20;
+#if defined(RT_PLATFORM_RTL8752H)
+const uint32_t kMinScheduleAdvanceUs = 100;
+#else
+const uint32_t kMinScheduleAdvanceUs = 20;
+#endif
 
 //------------------------------------------------------------------------------
 // State

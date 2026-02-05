@@ -242,7 +242,7 @@ static size_t _ntoa_format(out_fct_type out, char *buffer, size_t idx, size_t ma
     // handle hash
     if (flags & FLAGS_HASH)
     {
-        if (!(flags & FLAGS_PRECISION) && len && ((len == prec) || (len == width)))
+        if (!(flags & FLAGS_PRECISION) && (len > 0) && ((len == prec) || (len == width)))
         {
             len--;
             if (len && (base == 16U))
@@ -937,9 +937,20 @@ static int _vsnprintf(out_fct_type out, char *buffer, const size_t maxlen, const
                     }
                 }
                 // string output
-                while ((*p != 0) && (!(flags & FLAGS_PRECISION) || precision--))
+                while (*p != 0)
                 {
-                    out(*(p++), buffer, idx++, maxlen);
+                    if (flags & FLAGS_PRECISION)
+                    {
+                        if (precision == 0)
+                        {
+                            break;
+                        }
+                        else
+                        {
+                            precision--;
+                        }
+                    }
+                    out(* (p++), buffer, idx++, maxlen);
                 }
                 // post padding
                 if (flags & FLAGS_LEFT)
@@ -989,7 +1000,10 @@ static int _vsnprintf(out_fct_type out, char *buffer, const size_t maxlen, const
     }
 
     // termination
-    out((char)0, buffer, idx < maxlen ? idx : maxlen - 1U, maxlen);
+    if (maxlen > 0U)
+    {
+        out((char)0, buffer, idx < maxlen ? idx : maxlen - 1U, maxlen);
+    }
 
     // return written chars without terminating \0
     return (int)idx;
@@ -1002,13 +1016,11 @@ static int _vsnprintf(out_fct_type out, char *buffer, const size_t maxlen, const
  * PRINTF You must write your own putchar()
  *****************************************************************************/
 //#include "nonsecure_rom_cfg.h"
-#include "os_sync.h"
 #include "trace.h"
-#include "app_section.h"
 
 static uint8_t logbuf[256];
 extern uint8_t log_seq_num;
-extern void (*log_output)(uint8_t*);
+extern void (*log_output)(uint8_t *);
 extern uint64_t *trace_mask;
 
 #define GET_MODULE(info)                (uint8_t)((info) >> 8)
@@ -1029,20 +1041,20 @@ int dbg_snprintf(char *buffer, size_t count, const char *format, ...)
 
 #ifdef BUILD_CERT
 extern void uart_send(const uint8_t *aBuf, uint16_t aBufLength);
-int dbg_vprintf(const char * module, const char *format, va_list va)
+int dbg_vprintf(const char *module, const char *format, va_list va)
 {
     int len = 0;
     if (module)
     {
         len = snprintf(logbuf, 256, "[%s] ", module);
     }
-    len += _vsnprintf(_out_buffer, &logbuf[len], 256-len, format, va);
-    len += dbg_snprintf(&logbuf[len], 256-len, "\r\n");
+    len += _vsnprintf(_out_buffer, &logbuf[len], 256 - len, format, va);
+    len += dbg_snprintf(&logbuf[len], 256 - len, "\r\n");
     uart_send(logbuf, len);
     return len;
 }
 #else
-int dbg_vprintf(const char * module, const char *format, va_list va)
+int dbg_vprintf(const char *module, const char *format, va_list va)
 {
     return 0;
 }
@@ -1063,7 +1075,7 @@ int dbg_sprintf(char *buffer, const char *format, ...)
     va_list va;
     int ret;
     va_start(va, format);
-    ret = _vsnprintf(_out_buffer, buffer, (size_t)-1, format, va);
+    ret = _vsnprintf(_out_buffer, buffer, (size_t) - 1, format, va);
     va_end(va);
     return ret;
 }

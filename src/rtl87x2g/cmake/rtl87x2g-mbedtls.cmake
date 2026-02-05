@@ -29,13 +29,14 @@
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR 
    ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd" OR
    ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-ftd" OR
-   ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-mtd")
+   ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-mtd" OR
+   ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp")
 
     message("CMAKE_CURRENT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}")
 
     set(MBEDTLS_REPO ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/subsys/mbedtls/repo)
+    set(MBEDTLS_PORT ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/subsys/mbedtls/port)
     set(MBEDTLS_COMMON_CONFIG ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/subsys/mbedtls/mbedtls-config.h)
-
 
     add_subdirectory(
         ${MBEDTLS_REPO}
@@ -46,12 +47,12 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
         MBEDTLS_USER_CONFIG_FILE="${RT_PLATFORM}-mbedtls-config.h"
     )
 
-
     target_include_directories(ot-config SYSTEM
         INTERFACE
             ${CMAKE_CURRENT_BINARY_DIR}
-            ${MBEDTLS_REPO}/include)
-
+            ${MBEDTLS_REPO}/include
+            ${MBEDTLS_PORT}/inc
+            )
     target_compile_definitions(mbedtls
         PUBLIC
             "MBEDTLS_CONFIG_FILE=\"${MBEDTLS_COMMON_CONFIG}\""
@@ -65,6 +66,7 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
             $<BUILD_INTERFACE:${MBEDTLS_REPO}/include>
         PRIVATE
             ${OT_PUBLIC_INCLUDES}
+            ${MBEDTLS_PORT}/inc
             $<TARGET_PROPERTY:ot-config,INTERFACE_INCLUDE_DIRECTORIES>
     )
 
@@ -81,6 +83,7 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
             $<BUILD_INTERFACE:${MBEDTLS_REPO}/include>
         PRIVATE
             ${OT_PUBLIC_INCLUDES}
+            ${MBEDTLS_PORT}/inc
             $<TARGET_PROPERTY:ot-config,INTERFACE_INCLUDE_DIRECTORIES>
     )
 
@@ -94,15 +97,32 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
     target_include_directories(mbedcrypto
         PUBLIC
             $<BUILD_INTERFACE:${MBEDTLS_REPO}/include>
+
         PRIVATE
+            ${MBEDTLS_PORT}/inc
             ${OT_PUBLIC_INCLUDES}
+            ${MBEDTLS_REPO}/library
             $<TARGET_PROPERTY:ot-config,INTERFACE_INCLUDE_DIRECTORIES>
     )
 
-    target_compile_options(mbedcrypto PRIVATE
+    target_compile_options(mbedcrypto PRIVATE 
         -include "${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/subsys/crypto/mbedtls/mbedtls_lib/src/mbedtls_hw_interface.h"
     )
 
+    target_sources(mbedcrypto PRIVATE 
+                    ${MBEDTLS_PORT}/src/ecdsa_alt.c
+                    ${MBEDTLS_PORT}/src/ecp_alt.c
+                    ${MBEDTLS_PORT}/src/ecp_curves_alt.c
+                    # ${MBEDTLS_PORT}/src/threading_alt.c  # Disabled - incompatible with mbedtls 3.x
+                    ${MBEDTLS_PORT}/src/trng_alt.c
+                    ${MBEDTLS_PORT}/src/crypto_accel_dispatch.c
+                    ${MBEDTLS_PORT}/src/crypto_hw_locks.c
+                    )
+    
+    set(CHIP_CFLAGS "-save-temps=obj"
+                    "-DMBEDTLS_USER_CONFIG_FILE=<rtl87x2g-mbedtls-config.h>"
+                    "-DMBEDTLS_CONFIG_FILE=<mbedtls-config.h>"
+                    PARENT_SCOPE)                
 else()
 
     if (NOT OT_EXTERNAL_MBEDTLS)
@@ -120,18 +140,19 @@ else()
 
         add_library(rtl87x2g-mbedtls INTERFACE)
 
-    target_link_libraries(rtl87x2g-mbedtls
-        INTERFACE
-            ${OT_REALTEK_ROOT}/lib/rtl87x2g/libmbedtls.a
-            ${OT_REALTEK_ROOT}/lib/rtl87x2g/libmbedx509.a
-            ${OT_REALTEK_ROOT}/lib/rtl87x2g/libmbedcrypto.a
-    )
+        target_link_libraries(rtl87x2g-mbedtls
+            INTERFACE
+                ${OT_REALTEK_ROOT}/lib/rtl87x2g/libmbedtls.a
+                ${OT_REALTEK_ROOT}/lib/rtl87x2g/libmbedx509.a
+                ${OT_REALTEK_ROOT}/lib/rtl87x2g/libmbedcrypto.a
+        )
 
         target_include_directories(ot-config
             INTERFACE
                 ${REALTEK_SDK_ROOT}/subsys/mbedtls
                 ${REALTEK_SDK_ROOT}/subsys/mbedtls/repo/include
-        )
+                ${REALTEK_SDK_ROOT}/subsys/mbedtls/port/inc
+                )
 
         target_compile_definitions(ot-config INTERFACE
                 MBEDTLS_CONFIG_FILE="mbedtls-config.h"

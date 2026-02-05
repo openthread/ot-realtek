@@ -215,6 +215,7 @@ void zbTaskletsSignalPending(otInstance *aInstance);
 #define APP_WAKEUP_REASON_BUTTON_SW3    3
 #define APP_WAKEUP_REASON_BUTTON_SW4    4
 #define APP_WAKEUP_REASON_UART_RX       5
+#define APP_WAKEUP_REASON_SLEEP_TMO     6
 extern volatile uint32_t app_wakeup_reason;
 
 extern void mac_notify_pm_wakeup(uint8_t pan_idx);

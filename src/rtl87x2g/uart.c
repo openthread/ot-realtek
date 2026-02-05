@@ -40,11 +40,9 @@
 #include <stddef.h>
 #include <stdio.h>
 
-#include <openthread/platform/debug_uart.h>
 #include <openthread/platform/logging.h>
 #include "openthread-system.h"
 
-#include "utils/code_utils.h"
 #if OPENTHREAD_CONFIG_THREAD_VERSION >= OT_THREAD_VERSION_1_2
 #include "utils/uart.h"
 #else

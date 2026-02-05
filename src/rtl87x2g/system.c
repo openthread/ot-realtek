@@ -38,6 +38,13 @@
 #include "common/logging.hpp"
 #include "openthread-system.h"
 
+#define OT_PAN_IDX 0
+#if MAX_PAN_NUM > 1
+#define ZB_PAN_IDX 1
+#else
+#define ZB_PAN_IDX 0
+#endif
+
 #if OPENTHREAD_CONFIG_THREAD_VERSION < OT_THREAD_VERSION_1_2
 #if OPENTHREAD_CONFIG_HEAP_EXTERNAL_ENABLE
 void *SBee2CAlloc(size_t aNum, size_t aSize)
@@ -197,6 +204,21 @@ static otError ProcessSystemLedState(void *aContext, uint8_t aArgsLength, char *
 #endif
 #endif
 
+#if defined(BUILD_MATTER)
+#include "patch_header_check.h"
+T_IMAGE_VERSION current_image_ver = {0};
+static otError ProcessGetAppVersion()
+{
+    get_ota_bank_image_version(true, IMG_MCUAPP, &current_image_ver);
+    DBG_DIRECT("app current_ver %d.%d.%d.%d",
+               current_image_ver.ver_info.img_sub_version._version_major,
+               current_image_ver.ver_info.img_sub_version._version_minor,
+               current_image_ver.ver_info.img_sub_version._version_revision,
+               current_image_ver.ver_info.img_sub_version._version_reserve);
+    return OT_ERROR_NONE;
+}
+#endif
+
 static const otCliCommand rtkCommands[] =
 {
 #if (XMODEM_ENABLE == 1)
@@ -210,6 +232,9 @@ static const otCliCommand rtkCommands[] =
 #if defined(BUILD_MATTER)
     {"systemled", ProcessSystemLedState},
 #endif
+#endif
+#if defined(BUILD_MATTER)
+    {"appversion", ProcessGetAppVersion},
 #endif
 };
 #endif
@@ -225,24 +250,24 @@ void otSysProcessDrivers(otInstance *aInstance)
         otCliSetUserCommands(rtkCommands, OT_ARRAY_LENGTH(rtkCommands), aInstance);
     }
 #endif
-    BEE_RadioBackoffTimeout(aInstance, 0);
-    BEE_RadioRx(aInstance, 0);
+    BEE_RadioBackoffTimeout(aInstance, OT_PAN_IDX);
+    BEE_RadioRx(aInstance, OT_PAN_IDX);
 
-    while (ev_item[0].ev_head != ev_item[0].ev_tail)
+    while (ev_item[OT_PAN_IDX].ev_head != ev_item[OT_PAN_IDX].ev_tail)
     {
-        event = ev_item[0].ev_queue[ev_item[0].ev_head];
+        event = ev_item[OT_PAN_IDX].ev_queue[ev_item[OT_PAN_IDX].ev_head];
         switch (event)
         {
         case TX_START:
-            BEE_RadioTxStart(aInstance, 0);
+            BEE_RadioTxStart(aInstance, OT_PAN_IDX);
             break;
 
         case TX_DONE:
-            BEE_RadioTx(aInstance, 0);
+            BEE_RadioTx(aInstance, OT_PAN_IDX);
             break;
 
         case ED_SCAN:
-            BEE_RadioEnergyScan(aInstance, 0);
+            BEE_RadioEnergyScan(aInstance, OT_PAN_IDX);
             break;
 
         case UART_RX:
@@ -254,25 +279,25 @@ void otSysProcessDrivers(otInstance *aInstance)
             break;
 
         case ALARM_US:
-            BEE_AlarmMicroProcess(aInstance, 0);
+            BEE_AlarmMicroProcess(aInstance, OT_PAN_IDX);
             break;
 
         case ALARM_MS:
-            BEE_AlarmMilliProcess(aInstance, 0);
+            BEE_AlarmMilliProcess(aInstance, OT_PAN_IDX);
             break;
 
         case SLEEP:
-            BEE_SleepProcess(aInstance, 0);
+            BEE_SleepProcess(aInstance, OT_PAN_IDX);
             break;
 
         case WAKEUP:
-            BEE_WakeupProcess(aInstance, 0);
+            BEE_WakeupProcess(aInstance, OT_PAN_IDX);
             break;
 
         default:
             break;
         }
-        ev_item[0].ev_head = (ev_item[0].ev_head + 1) % EV_BUF_SIZE;
+        ev_item[OT_PAN_IDX].ev_head = (ev_item[OT_PAN_IDX].ev_head + 1) % EV_BUF_SIZE;
     }
 }
 
@@ -335,24 +360,24 @@ void zbSysProcessDrivers(otInstance *aInstance)
         otCliSetUserCommands(rtkCommands, OT_ARRAY_LENGTH(rtkCommands), aInstance);
     }
 #endif
-    BEE_RadioBackoffTimeout(aInstance, 1);
-    BEE_RadioRx(aInstance, 1);
+    BEE_RadioBackoffTimeout(aInstance, ZB_PAN_IDX);
+    BEE_RadioRx(aInstance, ZB_PAN_IDX);
 
-    while (ev_item[1].ev_head != ev_item[1].ev_tail)
+    while (ev_item[ZB_PAN_IDX].ev_head != ev_item[ZB_PAN_IDX].ev_tail)
     {
-        event = ev_item[1].ev_queue[ev_item[1].ev_head];
+        event = ev_item[ZB_PAN_IDX].ev_queue[ev_item[ZB_PAN_IDX].ev_head];
         switch (event)
         {
         case TX_START:
-            BEE_RadioTxStart(aInstance, 1);
+            BEE_RadioTxStart(aInstance, ZB_PAN_IDX);
             break;
 
         case TX_DONE:
-            BEE_RadioTx(aInstance, 1);
+            BEE_RadioTx(aInstance, ZB_PAN_IDX);
             break;
 
         case ED_SCAN:
-            BEE_RadioEnergyScan(aInstance, 1);
+            BEE_RadioEnergyScan(aInstance, ZB_PAN_IDX);
             break;
 
         case UART_RX:
@@ -364,25 +389,25 @@ void zbSysProcessDrivers(otInstance *aInstance)
             break;
 
         case ALARM_US:
-            BEE_AlarmMicroProcess(aInstance, 1);
+            BEE_AlarmMicroProcess(aInstance, ZB_PAN_IDX);
             break;
 
         case ALARM_MS:
-            BEE_AlarmMilliProcess(aInstance, 1);
+            BEE_AlarmMilliProcess(aInstance, ZB_PAN_IDX);
             break;
 
         case SLEEP:
-            BEE_SleepProcess(aInstance, 1);
+            BEE_SleepProcess(aInstance, ZB_PAN_IDX);
             break;
 
         case WAKEUP:
-            BEE_WakeupProcess(aInstance, 1);
+            BEE_WakeupProcess(aInstance, ZB_PAN_IDX);
             break;
 
         default:
             break;
         }
-        ev_item[1].ev_head = (ev_item[1].ev_head + 1) % EV_BUF_SIZE;
+        ev_item[ZB_PAN_IDX].ev_head = (ev_item[ZB_PAN_IDX].ev_head + 1) % EV_BUF_SIZE;
     }
 }
 

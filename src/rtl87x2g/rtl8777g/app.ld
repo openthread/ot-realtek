@@ -47,9 +47,9 @@ SECTIONS
     {
         __flash_text_start__ = .;
         *(.image_entry)
-        *(EXCLUDE_FILE (*librtl87x2g_sdk.a:*log_retarget.o *libbee4-internal.a:*.obj *libopenthread-bee4.a:*alarm.c.obj *libopenthread-bee4.a:*entropy.c.obj *libopenthread-bee4.a:*flash.c.obj *libopenthread-bee4.a:*logging.c.obj *libopenthread-bee4.a:*misc.c.obj *libopenthread-bee4.a:*radio.c.obj *libopenthread-bee4.a:*system.c.obj *libopenthread-bee4.a:*uart.c.obj *libopenthread-bee4.a:*zb_main.c.obj *libopenthread-bee4.a:*thread_task.c.obj *libopenthread-bee4.a:*dbg_printf.c.obj *libopenthread-bee4.a:*kvmgr.c.obj *libopenthread-bee4.a:*matter_kvs.c.obj *libopenthread-mtd.a:*radio*.cpp.obj *libopenthread-mtd.a:*sub_mac*.cpp.obj *libopenthread-mtd.a:timer.cpp.obj) .text*)
+        *(EXCLUDE_FILE (*librtl87x2g_sdk.a:*log_retarget.o *librtl87x2g-internal.a:*.obj *libopenthread-rtl87x2g.a:*alarm.c.obj *libopenthread-rtl87x2g.a:*entropy.c.obj *libopenthread-rtl87x2g.a:*flash.c.obj *libopenthread-rtl87x2g.a:*logging.c.obj *libopenthread-rtl87x2g.a:*misc.c.obj *libopenthread-rtl87x2g.a:*radio.c.obj *libopenthread-rtl87x2g.a:*system.c.obj *libopenthread-rtl87x2g.a:*uart.c.obj *libopenthread-rtl87x2g.a:*zb_main.c.obj *libopenthread-rtl87x2g.a:*thread_task.c.obj *libopenthread-rtl87x2g.a:*dbg_printf.c.obj *libopenthread-rtl87x2g.a:*kvmgr.c.obj *libopenthread-rtl87x2g.a:*matter_kvs.c.obj *libopenthread-mtd.a:*radio*.cpp.obj *libopenthread-mtd.a:*sub_mac*.cpp.obj *libopenthread-mtd.a:timer.cpp.obj) .text*)
         . = ALIGN(4);
-        *(EXCLUDE_FILE (*librtl87x2g_sdk.a:*log_retarget.o *libbee4-internal.a:*.obj *libopenthread-bee4.a:*alarm.c.obj *libopenthread-bee4.a:*entropy.c.obj *libopenthread-bee4.a:*flash.c.obj *libopenthread-bee4.a:*logging.c.obj *libopenthread-bee4.a:*misc.c.obj *libopenthread-bee4.a:*radio.c.obj *libopenthread-bee4.a:*system.c.obj *libopenthread-bee4.a:*uart.c.obj *libopenthread-bee4.a:*zb_main.c.obj *libopenthread-bee4.a:*thread_task.c.obj *libopenthread-bee4.a:*dbg_printf.c.obj *libopenthread-bee4.a:*kvmgr.c.obj *libopenthread-bee4.a:*matter_kvs.c.obj *libopenthread-mtd.a:*radio*.cpp.obj *libopenthread-mtd.a:*sub_mac*.cpp.obj *libopenthread-mtd.a:timer.cpp.obj) .rodata*)
+        *(EXCLUDE_FILE (*librtl87x2g_sdk.a:*log_retarget.o *librtl87x2g-internal.a:*.obj *libopenthread-rtl87x2g.a:*alarm.c.obj *libopenthread-rtl87x2g.a:*entropy.c.obj *libopenthread-rtl87x2g.a:*flash.c.obj *libopenthread-rtl87x2g.a:*logging.c.obj *libopenthread-rtl87x2g.a:*misc.c.obj *libopenthread-rtl87x2g.a:*radio.c.obj *libopenthread-rtl87x2g.a:*system.c.obj *libopenthread-rtl87x2g.a:*uart.c.obj *libopenthread-rtl87x2g.a:*zb_main.c.obj *libopenthread-rtl87x2g.a:*thread_task.c.obj *libopenthread-rtl87x2g.a:*dbg_printf.c.obj *libopenthread-rtl87x2g.a:*kvmgr.c.obj *libopenthread-rtl87x2g.a:*matter_kvs.c.obj *libopenthread-mtd.a:*radio*.cpp.obj *libopenthread-mtd.a:*sub_mac*.cpp.obj *libopenthread-mtd.a:timer.cpp.obj) .rodata*)
         . = ALIGN(4);
         * (.isr.text)
         * (.app.flash.text)
@@ -117,20 +117,20 @@ SECTIONS
         __enter_iram_ns_ro_start__ = .;
         * (.app.ram.text)
         *librtl87x2g_sdk.a:*log_retarget.o (.text* .rodata*)
-        *libbee4-internal.a:*.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*alarm.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*entropy.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*flash.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*logging.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*misc.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*radio.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*system.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*uart.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*zb_main.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*thread_task.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*dbg_printf.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*kvmgr.c.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*matter_kvs.c.obj (.text* .rodata*)
+        *librtl87x2g-internal.a:*.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*alarm.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*entropy.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*flash.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*logging.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*misc.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*radio.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*system.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*uart.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*zb_main.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*thread_task.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*dbg_printf.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*kvmgr.c.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*matter_kvs.c.obj (.text* .rodata*)
         *libopenthread-mtd.a:*radio*.cpp.obj (.text* .rodata*)
         *libopenthread-mtd.a:*sub_mac*.cpp.obj (.text* .rodata*)
         *libopenthread-mtd.a:timer.cpp.obj (.text* .rodata*)
@@ -184,4 +184,3 @@ SECTIONS
         *(.TRACE*)
     }>APP_TRACE
 }
-

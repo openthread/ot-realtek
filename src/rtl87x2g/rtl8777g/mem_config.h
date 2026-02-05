@@ -102,10 +102,10 @@ extern "C" {
 /*=======================================================================================*
   *                                 ITCM1 + DTCM0 + DTCM1 layout
   *=====================================================================================*/
-/* RAM(ITCM1):          Bee4 size: 192K
- * RAM(DTCM0):          Bee4 size:  64K
- * RAM(DTCM1):          Bee4 size:  64K
- * Total RAM(TCM):      Bee4 size: 320K
+/* RAM(ITCM1):          Rtl87x2g size: 192K
+ * RAM(DTCM0):          Rtl87x2g size:  64K
+ * RAM(DTCM1):          Rtl87x2g size:  64K
+ * Total RAM(TCM):      Rtl87x2g size: 320K
 example:
    a) non-secure total size:                          240K
       1) non-secure upperstack ram         3K

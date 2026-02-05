@@ -30,12 +30,12 @@
 #ifdef BOARD_RTL8771GUV
 #define VERSION_MAJOR            2
 #define VERSION_MINOR            0
-#define VERSION_REVISION         2
-#define VERSION_BUILDNUM         0
+#define VERSION_REVISION         3
+#define VERSION_BUILDNUM         1
 #elif defined(BOARD_RTL8771GTV)
 #define VERSION_MAJOR            3
 #define VERSION_MINOR            0
-#define VERSION_REVISION         1
+#define VERSION_REVISION         2
 #define VERSION_BUILDNUM         1
 #else
 #define VERSION_MAJOR            0
