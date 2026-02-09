@@ -61,6 +61,6 @@ if(${RT_PLATFORM} STREQUAL "rtl87x2g")
         ${REALTEK_SDK_ROOT}/bsp/sdk_lib/inc
         ${REALTEK_SDK_ROOT}/bsp/sdk_lib/inc_int
         ${REALTEK_SDK_ROOT}/bsp/power
-        ${REALTEK_SDK_ROOT}/subsys/mac_driver/portable/bee4
+        ${REALTEK_SDK_ROOT}/subsys/mac_driver/portable/rtl87x2g
     )
 endif()

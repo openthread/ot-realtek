@@ -41,7 +41,6 @@ add_library(openthread-rtl87x2g
     system_rtl.c
     zb_main.c
     thread_task.c
-    "${REALTEK_SDK_ROOT}/subsys/mbedtls/port/src/threading_alt.c"
     # crypto
     # app
     xmodem.c
@@ -80,7 +79,7 @@ target_link_libraries(openthread-rtl87x2g
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_lib/lib/rtl87x2g/gcc/libusb.a"
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_hal/lib/rtl87x2g/gcc/libusb_hal.a"
         "${REALTEK_SDK_ROOT}/subsys/bluetooth/gap_ext/lib/rtl87x2g/bt_host_0_0/gcc/libgap_utils.a"
-        "${REALTEK_SDK_ROOT}//lib/rtl87x2g/${BOARD}/librtl87x2g-internal.a"
+        "${REALTEK_SDK_ROOT}/lib/rtl87x2g/${BOARD}/librtl87x2g-internal.a"
         "${REALTEK_SDK_ROOT}/subsys/mac_driver/portable/rtl87x2g/rtl87x2g-internal.axf"
         "${REALTEK_SDK_ROOT}/bsp/driver/driver_lib/lib/rtl87x2g/gcc/librtl87x2g_io.a"
         "${REALTEK_SDK_ROOT}/bsp/sdk_lib/lib/rtl87x2g/gcc/librtl87x2g_sdk.a"
@@ -114,7 +113,6 @@ target_compile_definitions(openthread-rtl87x2g
         ${OT_PLATFORM_DEFINES}
         "BUILD_WITHOUT_FTL=1"
         "RT_PLATFORM_RTL87X2G"
-        "MBEDTLS_ALLOW_PRIVATE_ACCESS"
 )
 
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd")

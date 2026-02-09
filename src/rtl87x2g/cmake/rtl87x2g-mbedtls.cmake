@@ -56,7 +56,6 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
     target_compile_definitions(mbedtls
         PUBLIC
             "MBEDTLS_CONFIG_FILE=\"${MBEDTLS_COMMON_CONFIG}\""
-            "MBEDTLS_ALLOW_PRIVATE_ACCESS="
         PRIVATE
             $<TARGET_PROPERTY:ot-config,INTERFACE_COMPILE_DEFINITIONS>
     )
@@ -73,7 +72,6 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
     target_compile_definitions(mbedx509
         PUBLIC
             "MBEDTLS_CONFIG_FILE=\"${MBEDTLS_COMMON_CONFIG}\""
-            "MBEDTLS_ALLOW_PRIVATE_ACCESS="
         PRIVATE
             $<TARGET_PROPERTY:ot-config,INTERFACE_COMPILE_DEFINITIONS>
 
@@ -90,16 +88,20 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
     target_compile_definitions(mbedcrypto
         PUBLIC
             "MBEDTLS_CONFIG_FILE=\"${MBEDTLS_COMMON_CONFIG}\""
-            "MBEDTLS_ALLOW_PRIVATE_ACCESS="
         PRIVATE
             $<TARGET_PROPERTY:ot-config,INTERFACE_COMPILE_DEFINITIONS>
     )
+    
+    target_include_directories(mbedcrypto BEFORE
+        PRIVATE
+            ${MBEDTLS_PORT}/inc
+    )
+    
     target_include_directories(mbedcrypto
         PUBLIC
             $<BUILD_INTERFACE:${MBEDTLS_REPO}/include>
 
         PRIVATE
-            ${MBEDTLS_PORT}/inc
             ${OT_PUBLIC_INCLUDES}
             ${MBEDTLS_REPO}/library
             $<TARGET_PROPERTY:ot-config,INTERFACE_INCLUDE_DIRECTORIES>
@@ -113,11 +115,17 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
                     ${MBEDTLS_PORT}/src/ecdsa_alt.c
                     ${MBEDTLS_PORT}/src/ecp_alt.c
                     ${MBEDTLS_PORT}/src/ecp_curves_alt.c
-                    # ${MBEDTLS_PORT}/src/threading_alt.c  # Disabled - incompatible with mbedtls 3.x
+                    ${MBEDTLS_PORT}/src/threading_alt.c
                     ${MBEDTLS_PORT}/src/trng_alt.c
                     ${MBEDTLS_PORT}/src/crypto_accel_dispatch.c
                     ${MBEDTLS_PORT}/src/crypto_hw_locks.c
                     )
+    
+    # Ensure threading_alt.c uses the SDK's threading_alt.h with correct structure definition
+    set_source_files_properties(${MBEDTLS_PORT}/src/threading_alt.c
+        PROPERTIES
+        INCLUDE_DIRECTORIES "${MBEDTLS_PORT}/inc;${MBEDTLS_REPO}/include"
+    )
     
     set(CHIP_CFLAGS "-save-temps=obj"
                     "-DMBEDTLS_USER_CONFIG_FILE=<rtl87x2g-mbedtls-config.h>"
@@ -129,7 +137,6 @@ else()
         if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-mtd")
             target_compile_definitions(ot-config INTERFACE
                     MBEDTLS_USER_CONFIG_FILE="ncp-mbedtls-config.h"
-                    MBEDTLS_ALLOW_PRIVATE_ACCESS=
             )
         else()
             target_compile_definitions(ot-config INTERFACE

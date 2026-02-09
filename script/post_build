@@ -65,7 +65,7 @@ elif [ "$(uname -s)" = "Linux" ]; then
 else
     if [ "${RT_PLATFORM}" = "rtl87x2g" ]; then
         PREPEND_HEADER="${REALTEK_SDK_PATH}/tools/prepend_header/prepend_header.exe"
-        MD5_TOOL="${REALTEK_SDK_PATH}/tools/md5/md5.exe"
+        MD5_TOOL="${REALTEK_SDK_PATH}/tools/md5/MD5.exe"
     elif [ "${RT_PLATFORM}" = "rtl8752h" ]; then
         PREPEND_HEADER="${REALTEK_SDK_PATH}/tool/Gadgets/prepend_header/prepend_header.exe"
         MD5_TOOL="${REALTEK_SDK_PATH}/tool/Gadgets/md5/md5.exe"
