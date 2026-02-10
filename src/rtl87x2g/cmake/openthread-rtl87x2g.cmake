@@ -74,12 +74,11 @@ target_link_libraries(openthread-rtl87x2g
     PRIVATE
         ${OT_MBEDTLS}
         ot-config
-        # rtl87x2g-internal  # Removed - using .axf directly instead
         rtl87x2g-peripheral
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_lib/lib/rtl87x2g/gcc/libusb.a"
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_hal/lib/rtl87x2g/gcc/libusb_hal.a"
         "${REALTEK_SDK_ROOT}/subsys/bluetooth/gap_ext/lib/rtl87x2g/bt_host_0_0/gcc/libgap_utils.a"
-        "${REALTEK_SDK_ROOT}/lib/rtl87x2g/${BOARD}/librtl87x2g-internal.a"
+        "${REALTEK_SDK_ROOT}/lib/rtl87x2g/librtl87x2g-internal.a"
         "${REALTEK_SDK_ROOT}/subsys/mac_driver/portable/rtl87x2g/rtl87x2g-internal.axf"
         "${REALTEK_SDK_ROOT}/bsp/driver/driver_lib/lib/rtl87x2g/gcc/librtl87x2g_io.a"
         "${REALTEK_SDK_ROOT}/bsp/sdk_lib/lib/rtl87x2g/gcc/librtl87x2g_sdk.a"

@@ -1633,7 +1633,7 @@ void BEE_SleepProcess(otInstance *aInstance, uint8_t pan_idx)
         diff = tmp_ms - now;
     }
 
-    if (diff < 10000)
+    if (diff < kMinSleepPeriodUs)
     {
         os_unlock(s);
         goto stay_awake;
