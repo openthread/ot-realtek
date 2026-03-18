@@ -28,6 +28,12 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 
+if [ "$#" -ne 4 ]; then
+    echo "Error: Invalid number of arguments. Expected 4, got $#." >&2
+    echo "Usage: $0 <build_bank> <build_target> <rt_platform> <ld_script>" >&2
+    exit 1
+fi
+
 BUILD_BANK="$1"
 BUILD_TARGET="$2"
 RT_PLATFORM="$3"
