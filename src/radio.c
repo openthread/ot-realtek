@@ -57,17 +57,12 @@
 #include "utils/link_metrics.h"
 #endif
 #include "utils/mac_frame.h"
-#include "utils/uart.h"
 //#include <platform-config.h>
 #include <openthread/platform/alarm-milli.h>
 #include <openthread/platform/alarm-micro.h>
-#include <openthread/platform/diag.h>
 #include <openthread/platform/radio.h>
 #include <openthread/platform/time.h>
-
 #include "openthread-system.h"
-
-#include <openthread/random_noncrypto.h>
 #include "dbg_printf.h"
 
 // clang-format off
@@ -86,13 +81,18 @@
 #define RSSI_SETTLE_TIME_US   40           ///< RSSI settle time in microseconds.
 #define SAFE_DELTA            1000         ///< A safe value for the `dt` parameter of delayed operations.
 
+#if defined(DLPS_EN) && (DLPS_EN == 1)
 #define CSL_UNCERT            74           ///< The Uncertainty of the scheduling CSL of transmission by the parent, in ±10 us units.
+#else
+#define CSL_UNCERT            20           ///< The Uncertainty of the scheduling CSL of transmission by the parent, in ±10 us units.
+#endif
 #define PHY_SYMBOL_TIME       16           ///< 1 symbol time in us.
 #define SHR_DURATION_US       160          ///< Duration of SHR in us, 10 * PHY_SYMBOL_TIME.
 #define PHR_DURATION_US       32           ///< Duration of PHR in us.
 #define IMMACK_DURATION_US    352          ///< 5B SRHR + 1B PHR + 2B MHR + 1B SEQ + 2B FCS = 11 Bytes * 2 Symbol * 16 us = 352 us
 #define EXTRA_PROTECTION_EN   0
 #define TRANSMIT_RETRIES_EN   1
+//#define OPENTHREAD_CONFIG_WAKEUP_END_DEVICE_ENABLE 1
 
 #define TX_BACKOFF_USE_MS_ALARM 0
 #define TX_BACKOFF_USE_US_ALARM 1
@@ -104,6 +104,11 @@
 #define TX_BACKOFF_TMR_MODE TX_BACKOFF_USE_US_ALARM
 #endif
 
+#if defined(RT_PLATFORM_RTL8752H)
+const uint32_t kMinSleepPeriodUs = 50000;
+#else
+const uint32_t kMinSleepPeriodUs = 10000;
+#endif
 const uint8_t kTxBackoffTmrMode = TX_BACKOFF_TMR_MODE;
 extern void mac_TrigMacTmr(uint32_t period_us);
 #if defined(__ICCARM__)
@@ -135,7 +140,11 @@ enum
 
 #define DEFAULT_CCA_ED_THRES 20
 #define DEFAULT_CCA_CS_THRES 25
-#define MAX_TRANSMIT_RETRY 16
+#if defined(RT_PLATFORM_RTL87X3G) || defined(RT_PLATFORM_RTL8922D)
+const uint32_t MAX_TRANSMIT_RETRY[MAX_PAN_NUM] = {16, 1};
+#else
+const uint32_t MAX_TRANSMIT_RETRY[MAX_PAN_NUM] = {16};
+#endif
 #define MAX_TRANSMIT_CCAFAIL 16
 #ifdef BUILD_MATTER
 #define MAX_TRANSMIT_BC_RETRY 1 // 1 times retry for broadcast frame
@@ -155,6 +164,7 @@ extern bool mac_SoftwareTimer_IsRunning(pmac_timer_handle_t pmac_tmr);
 extern volatile uint64_t micro_alarm_us[MAX_PAN_NUM];
 extern volatile uint64_t milli_alarm_us[MAX_PAN_NUM];
 APP_RAM_TEXT_SECTION void handle_tx_backoff_pending(uint8_t pan_idx);
+extern const uint32_t kMinScheduleAdvanceUs;
 
 typedef struct
 {
@@ -163,6 +173,7 @@ typedef struct
     uint8_t sReceivedChannel;
 } rx_item_t;
 
+/* *INDENT-OFF* */
 typedef struct
 {
     union
@@ -176,17 +187,21 @@ typedef struct
             volatile uint8_t waitRxPendingData       : 1;  // waiting for pending data to be received
             volatile uint8_t waitScheduledRxWindow   : 1;  // waiting for a scheduled receive window
             volatile uint8_t rxOnWhenIdle            : 1;  // keeping the receiver on when the system is idle
-            volatile uint8_t reserved                : 3;  // reserved bit field for future use
+            volatile uint8_t appForceStayAwake       : 1;  // App forces radio to stay awake and disables sleep
+            volatile uint8_t reserved                : 2;  // reserved bit field for future use
         } sStayAwake_b;
     };
 
 #if defined(WAIT_ACK_TX_DONE_EN) && (WAIT_ACK_TX_DONE_EN == 1)
     mac_timer_handle_t *sWaitAckTxDoneTimer;
+    //volatile uint64_t sWaitAckTxDoneTimestamp; // To prevent the timer from not executing correctly
 #endif
 
 #if defined(DLPS_EN) && (DLPS_EN == 1)
     mac_timer_handle_t *sWaitRxPendingDataTimer;
+    //volatile uint64_t sWaitRxPendingDataTimestamp; // To prevent the timer from not executing correctly
 #endif
+    //volatile uint64_t sWaitScheduledRxWindowTimestamp;
     volatile uint64_t dbg_exit_dlps;
     bool sDisabled;
     otRadioState sState;
@@ -198,9 +213,6 @@ typedef struct
     volatile uint16_t rx_head;
     rx_item_t rx_queue[RX_BUF_SIZE];
     rx_item_t ack_item;
-#if defined(RT_PLATFORM_BEE3PLUS)
-    rx_item_t ack_received;
-#endif
     bool ack_fp;
     bool ack_receive_done;
 
@@ -269,6 +281,7 @@ typedef struct _fc_t
     uint16_t ver: 2;
     uint16_t src_addr_mode: 2;
 } fc_t;
+/* *INDENT-ON* */
 
 #define FRAME_TYPE_BEACON   0
 #define FRAME_TYPE_DATA     1
@@ -328,7 +341,7 @@ typedef struct
 
 #ifdef _IS_FPGA_
 #else
-#ifdef RT_PLATFORM_BEE3PLUS
+#ifdef RT_PLATFORM_RTL8752H
 extern bool (*hw_sha256)(uint8_t *input, uint32_t byte_len, uint32_t *result, int mode);
 #else
 extern bool hw_sha256(uint8_t *input, uint32_t byte_len, uint32_t *result, int mode);
@@ -340,6 +353,8 @@ static uint8_t sha256_output[32];
 extern void (*zbmac_pm_init)(zbpm_adapter_t *padapter);
 static zbpm_adapter_t zbpm_adap;
 static bool zbpm_inited = false;
+static void direct_exit_pan0(void);
+static void direct_exit_pan1(void);
 #endif
 
 void pm_check_inactive(const char *callerStr, bool wakeup)
@@ -368,35 +383,14 @@ void pm_check_inactive(const char *callerStr, bool wakeup)
 static void pm_init(void)
 {
 #if !defined(_IS_FPGA_) && defined(DLPS_EN) && (DLPS_EN == 1)
-    zbpm_adapter_t *padapter = &zbpm_adap;
-
     if (true == zbpm_inited)
     {
         return;
     }
 
     zbpm_inited = true;
-    padapter->power_mode = ZBMAC_ACTIVE;
-    padapter->wakeup_reason = ZBMAC_PM_WAKEUP_UNKNOWN;
-    padapter->error_code = ZBMAC_PM_ERROR_UNKNOWN;
-
-    padapter->stage_time[ZBMAC_PM_CHECK] = 20;
-    padapter->stage_time[ZBMAC_PM_STORE] = 15;
-    padapter->stage_time[ZBMAC_PM_ENTER] = 5;
-    padapter->stage_time[ZBMAC_PM_EXIT] = 5;
-    padapter->stage_time[ZBMAC_PM_RESTORE] = 20;
-    padapter->minimum_sleep_time = 20;
-    padapter->learning_guard_time = 7; // 3 (learning guard time) + 4 (two 16k po_intr drift)
-
-    padapter->cfg.wake_interval_en = 0;
-    padapter->cfg.stage_time_learned = 0;
-    padapter->wakeup_time_us = 0;
-    padapter->wakeup_interval_us = 0;
-    padapter->enter_callback = NULL;
-    padapter->exit_callback = NULL;
-
+    mac_power_manager_init(&zbpm_adap, NULL, NULL);
     otLogNotePlat("zbmac_pm_init");
-    zbmac_pm_init(padapter);
 #endif
 }
 
@@ -445,10 +439,15 @@ void startWaitAckTxDoneProtection(uint8_t pan_idx, uint64_t ackEndTime, uint32_t
 
 static void dataInit(uint8_t pan_idx)
 {
+    uint32_t s;
     os_sem_create(&radio_inst[pan_idx].radio_done, "radio_done", 0, 1);
     radio_inst[pan_idx].sDisabled = true;
-    radio_inst[pan_idx].sStayAwake_b.rxOnWhenIdle = true;
+    radio_inst[pan_idx].sStayAwake_b.appForceStayAwake = true;
     radio_inst[pan_idx].sTransmitFrame.mPsdu = &radio_inst[pan_idx].sTransmitPsdu[MAC_FRAME_TX_HDR_LEN];
+
+    /*#if OPENTHREAD_CONFIG_WAKEUP_END_DEVICE_ENABLE
+        radio_inst[pan_idx].sCstPeriod = 40000;
+    #endif*/
 
 #if OPENTHREAD_CONFIG_MAC_HEADER_IE_SUPPORT
     radio_inst[pan_idx].sTransmitFrame.mInfo.mTxInfo.mIeInfo = &radio_inst[pan_idx].sTransmitIeInfo;
@@ -457,7 +456,9 @@ static void dataInit(uint8_t pan_idx)
     pm_init();
 
 #if defined(DLPS_EN) && (DLPS_EN == 1)
+    s = os_lock();
     radio_inst[pan_idx].sWaitRxPendingDataTimer = mac_SoftwareTimer_Alloc();
+    os_unlock(s);
     if (!radio_inst[pan_idx].sWaitRxPendingDataTimer)
     {
         otLogWarnPlat("sWaitRxPendingDataTimer alloc fail");
@@ -465,7 +466,9 @@ static void dataInit(uint8_t pan_idx)
 #endif
 
 #if defined(WAIT_ACK_TX_DONE_EN) && (WAIT_ACK_TX_DONE_EN == 1)
+    s = os_lock();
     radio_inst[pan_idx].sWaitAckTxDoneTimer = mac_SoftwareTimer_Alloc();
+    os_unlock(s);
     if (!radio_inst[pan_idx].sWaitAckTxDoneTimer)
     {
         otLogWarnPlat("sWaitAckTxDoneTimer alloc fail");
@@ -480,11 +483,22 @@ static void dataInit(uint8_t pan_idx)
 
 static void dataDeinit(uint8_t pan_idx)
 {
+    uint32_t s;
     otLogInfoPlat("%s %d", __func__, pan_idx);
 #if defined(WAIT_ACK_TX_DONE_EN) && (WAIT_ACK_TX_DONE_EN == 1)
     if (radio_inst[pan_idx].sWaitAckTxDoneTimer)
     {
+        s = os_lock();
         mac_SoftwareTimer_Free(radio_inst[pan_idx].sWaitAckTxDoneTimer);
+        os_unlock(s);
+    }
+#endif
+#if defined(DLPS_EN) && (DLPS_EN == 1)
+    if (radio_inst[pan_idx].sWaitRxPendingDataTimer)
+    {
+        s = os_lock();
+        mac_SoftwareTimer_Free(radio_inst[pan_idx].sWaitRxPendingDataTimer);
+        os_unlock(s);
     }
 #endif
     os_sem_delete(radio_inst[pan_idx].radio_done);
@@ -610,6 +624,12 @@ void otPlatRadioSetRxOnWhenIdle(otInstance *aInstance, bool aEnable)
     uint8_t pan_idx = mpan_GetCurrentPANIdx();
     radio_inst[pan_idx].sStayAwake_b.rxOnWhenIdle = aEnable;
     otLogNotePlat("otPlatRadioSetRxOnWhenIdle %d", aEnable);
+    // openthread take control instead of app
+    if (!aEnable && radio_inst[pan_idx].sStayAwake_b.appForceStayAwake)
+    {
+        otLogNotePlat("change appForceStayAwake to 0");
+        radio_inst[pan_idx].sStayAwake_b.appForceStayAwake = false;
+    }
     BEE_SleepProcess(aInstance, pan_idx);
 }
 
@@ -646,7 +666,7 @@ void rxdone_handler(uint8_t pan_idx, uint32_t arg);
 void edscan_handler(uint8_t pan_idx, uint32_t arg);
 void btcmp0_handler(uint8_t pan_idx, uint32_t arg);
 void btcmp1_handler(uint8_t pan_idx, uint32_t arg);
-#if defined(RT_PLATFORM_BB2ULTRA) || defined(RT_PLATFORM_RTL8922D)
+#if defined(RT_PLATFORM_RTL87X3G) || defined(RT_PLATFORM_RTL8922D)
 void btcmp4_handler(uint8_t pan_idx, uint32_t arg);
 void btcmp5_handler(uint8_t pan_idx, uint32_t arg);
 #endif
@@ -665,7 +685,7 @@ void BEE_RadioInit(uint8_t pan_idx)
         mpan_EnableCtl(0, 1);
         dataInit(0);
     }
-#if defined(RT_PLATFORM_BB2ULTRA) || defined(RT_PLATFORM_RTL8922D)
+#if defined(RT_PLATFORM_RTL87X3G) || defined(RT_PLATFORM_RTL8922D)
     else
     {
         mpan_RegisterISR(1, txnterr_handler, txn_handler, rxely_handler, rxdone_handler, edscan_handler);
@@ -688,7 +708,7 @@ void BEE_RadioDeinit(uint8_t pan_idx)
         mpan_EnableCtl(0, 0);
         dataDeinit(0);
     }
-#if defined(RT_PLATFORM_BB2ULTRA) || defined(RT_PLATFORM_RTL8922D)
+#if defined(RT_PLATFORM_RTL87X3G) || defined(RT_PLATFORM_RTL8922D)
     else
     {
         mpan_EnableCtl(1, 0);
@@ -891,6 +911,10 @@ uint64_t get_tx_backoff_pending(uint8_t pan_idx)
 
 void BEE_RadioBackoffStart(uint8_t pan_idx)
 {
+    if (pan_idx >= MAX_PAN_NUM)
+    {
+        return;
+    }
     uint32_t now_btus;
     uint64_t now;
     uint32_t s = os_lock();
@@ -919,15 +943,138 @@ void BEE_RadioBackoffStart(uint8_t pan_idx)
 
 void BEE_RadioBackoffTimeout(otInstance *aInstance, uint8_t pan_idx)
 {
-    uint64_t now, phrTxTime = 0;
-    uint32_t s, now_btus;
-    otRadioFrame *aFrame = &radio_inst[pan_idx].sTransmitFrame;
-
     if (!radio_inst[pan_idx].tx_backoff_tmo)
     {
         return;
     }
     radio_inst[pan_idx].tx_backoff_tmo = false;
+    BEE_RadioTxStart(aInstance, pan_idx);
+}
+
+void HandleTxBackoffDelay(otInstance *aInstance, uint8_t pan_idx)
+{
+    otRadioFrame *aFrame = &radio_inst[pan_idx].sTransmitFrame;
+    radio_inst[pan_idx].tx_backoff_delay = 0;
+
+#if OPENTHREAD_CONFIG_WAKEUP_END_DEVICE_ENABLE
+    if (radio_inst[pan_idx].sCstPeriod > 0) // must follow cst scheduler
+    {
+        radio_inst[pan_idx].tx_backoff_delay = GetNextCstTransmission(pan_idx,
+                                                                      &(aFrame->mInfo.mTxInfo.mTxDelayBaseTime), &(aFrame->mInfo.mTxInfo.mTxDelay), 2000);
+        SwitchedToIndirectTxSet(aFrame->mInfo.mTxInfo.mTxDelay);
+
+        if (radio_inst[pan_idx].tx_backoff_delay < 1000)
+        {
+            radio_inst[pan_idx].tx_backoff_delay = 0;
+        }
+    }
+    else
+#endif
+        if (aFrame->mInfo.mTxInfo.mTxDelay == 0 && radio_inst[pan_idx].sStayAwake_b.rxOnWhenIdle)
+        {
+            radio_inst[pan_idx].tx_backoff_delay = mac_SetTxNCsmaDetail(true,
+                                                                        3 + radio_inst[pan_idx].sTransmitCcaFailCnt);
+        }
+
+    // Transmit ASAP or do sw csma backoff
+    if (radio_inst[pan_idx].tx_backoff_delay)
+    {
+        BEE_RadioBackoffStart(pan_idx);
+        //otLogNotePlat("TX backoff %lu", radio_inst[pan_idx].tx_backoff_delay);
+    }
+    else
+    {
+        radio_inst[pan_idx].tx_backoff_tmo = true;
+        otTaskletsSignalPending(aInstance);
+    }
+}
+
+otError otPlatRadioTransmit(otInstance *aInstance, otRadioFrame *aFrame)
+{
+    uint8_t pan_idx = mpan_GetCurrentPANIdx();
+
+    if (radio_inst[pan_idx].sState == OT_RADIO_STATE_DISABLED)
+    {
+        return OT_ERROR_INVALID_STATE;
+    }
+
+#ifdef EXTRA_PROTECTION_EN
+    pm_check_inactive("otPlatRadioTransmit", true);
+#endif
+
+    radio_inst[pan_idx].sState = OT_RADIO_STATE_TRANSMIT;
+    radio_inst[pan_idx].sTransmitRetry = 0;
+    radio_inst[pan_idx].sTransmitCcaFailCnt = 0;
+
+#if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
+    if (radio_inst[pan_idx].sCslPeriod > 0 && aFrame->mInfo.mTxInfo.mTxDelay == 0)
+    {
+        //otLogNotePlat("SwitchedToIndirectTx");
+        SwitchedToIndirectTxSet(aFrame->mInfo.mTxInfo.mTxDelay);
+    }
+#endif
+
+    HandleTxBackoffDelay(aInstance, pan_idx);
+    otPlatRadioTxStarted(aInstance, aFrame);
+    return OT_ERROR_NONE;
+}
+
+#if OPENTHREAD_CONFIG_WAKEUP_END_DEVICE_ENABLE
+otError otPlatRadioEnableCst(otInstance         *aInstance,
+                             uint32_t            aCstPeriod)
+{
+    uint8_t pan_idx = mpan_GetCurrentPANIdx();
+
+    if (radio_inst[pan_idx].sCstPeriod != aCstPeriod)
+    {
+        radio_inst[pan_idx].sCstPeriod = aCstPeriod;
+        otLogNotePlat("%s aCstPeriod %lu", __func__, aCstPeriod);
+    }
+    return OT_ERROR_NONE;
+}
+
+void otPlatRadioUpdateCstSampleTime(otInstance *aInstance, uint64_t aCstSampleTime)
+{
+    uint8_t pan_idx = mpan_GetCurrentPANIdx();
+    OT_UNUSED_VARIABLE(aInstance);
+    radio_inst[pan_idx].sCstSampleTime = aCstSampleTime;
+    //otLogNotePlat("%s aCstSampleTime %llu", __func__, aCstSampleTime);
+}
+
+uint32_t GetNextCstTransmission(uint8_t pan_idx, uint32_t *aTxDelayBaseTime, uint32_t *aTxDelay,
+                                uint32_t aAheadUs)
+{
+    uint64_t radioNow   = otPlatTimeGet();
+    uint32_t periodInUs = radio_inst[pan_idx].sCstPeriod;
+
+    uint64_t nextTxWindow  = radio_inst[pan_idx].sCstSampleTime;
+
+    while (nextTxWindow < radioNow + aAheadUs)
+    {
+        nextTxWindow += periodInUs;
+    }
+
+    if (aTxDelayBaseTime)
+    {
+        *aTxDelayBaseTime = (uint32_t)radioNow;
+    }
+
+    if (aTxDelay)
+    {
+        *aTxDelay = (uint32_t)(nextTxWindow - radioNow);
+    }
+
+    radio_inst[pan_idx].sCstSampleTime = nextTxWindow;
+
+    return nextTxWindow - radioNow - aAheadUs;
+}
+#endif
+
+void BEE_RadioTxStart(otInstance *aInstance, uint8_t pan_idx)
+{
+    uint64_t now, phrTxTime = 0;
+    uint32_t s, now_btus;
+    otRadioFrame *aFrame = &radio_inst[pan_idx].sTransmitFrame;
 
     now = otPlatTimeGetWithBTUS(&now_btus);
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE || OPENTHREAD_CONFIG_WAKEUP_END_DEVICE_ENABLE
@@ -1006,18 +1153,17 @@ void BEE_RadioBackoffTimeout(otInstance *aInstance, uint8_t pan_idx)
         s = os_lock();
         now_btus = mac_GetCurrentBTUS();
         now = bt_clk_offset + now_btus;
+        os_unlock(s);
 
         if (phrTxTime > now)
         {
             uint32_t diff = phrTxTime - now;
             mpan_TrigTxNAtUS(otMacFrameIsAckRequested(aFrame), false, true, now_btus + diff, pan_idx);
-            os_unlock(s);
             otLogNotePlat("TXAT %u %u remain %lu phrTxTime %llu", aFrame->mPsdu[2], aFrame->mChannel,
                           diff, phrTxTime);
         }
         else
         {
-            os_unlock(s);
             mpan_mac_unlock();
             radio_inst[pan_idx].tx_result = TX_AT_FAIL;
             otLogNotePlat("TXAT %u %u expired %lu", aFrame->mPsdu[2], aFrame->mChannel,
@@ -1040,132 +1186,6 @@ void BEE_RadioBackoffTimeout(otInstance *aInstance, uint8_t pan_idx)
     BEE_SleepProcess(NULL, pan_idx);
     BEE_RadioTx(aInstance, pan_idx);
     return;
-}
-
-otError otPlatRadioTransmit(otInstance *aInstance, otRadioFrame *aFrame)
-{
-    uint8_t pan_idx = mpan_GetCurrentPANIdx();
-
-    if (radio_inst[pan_idx].sState == OT_RADIO_STATE_DISABLED)
-    {
-        return OT_ERROR_INVALID_STATE;
-    }
-
-#ifdef EXTRA_PROTECTION_EN
-    pm_check_inactive("otPlatRadioTransmit", true);
-#endif
-
-    BEE_EventSend(TX_START, pan_idx);
-    otTaskletsSignalPending(aInstance);
-    return OT_ERROR_NONE;
-}
-
-#if OPENTHREAD_CONFIG_WAKEUP_END_DEVICE_ENABLE
-otError otPlatRadioEnableCst(otInstance         *aInstance,
-                             uint32_t            aCstPeriod)
-{
-    uint8_t pan_idx = mpan_GetCurrentPANIdx();
-
-    if (radio_inst[pan_idx].sCstPeriod != aCstPeriod)
-    {
-        radio_inst[pan_idx].sCstPeriod = aCstPeriod;
-        otLogNotePlat("%s aCstPeriod %lu", __func__, aCstPeriod);
-    }
-    return OT_ERROR_NONE;
-}
-
-void otPlatRadioUpdateCstSampleTime(otInstance *aInstance, uint64_t aCstSampleTime)
-{
-    uint8_t pan_idx = mpan_GetCurrentPANIdx();
-    OT_UNUSED_VARIABLE(aInstance);
-    radio_inst[pan_idx].sCstSampleTime = aCstSampleTime;
-    //otLogNotePlat("%s aCstSampleTime %llu", __func__, aCstSampleTime);
-}
-
-uint32_t GetNextCstTransmission(uint8_t pan_idx, uint32_t *aTxDelayBaseTime, uint32_t *aTxDelay,
-                                uint32_t aAheadUs)
-{
-    uint64_t radioNow   = otPlatTimeGet();
-    uint32_t periodInUs = radio_inst[pan_idx].sCstPeriod;
-
-    uint64_t nextTxWindow  = radio_inst[pan_idx].sCstSampleTime;
-
-    while (nextTxWindow < radioNow + aAheadUs)
-    {
-        nextTxWindow += periodInUs;
-    }
-
-    if (aTxDelayBaseTime)
-    {
-        *aTxDelayBaseTime = (uint32_t)radioNow;
-    }
-
-    if (aTxDelay)
-    {
-        *aTxDelay = (uint32_t)(nextTxWindow - radioNow);
-    }
-
-    radio_inst[pan_idx].sCstSampleTime = nextTxWindow;
-
-    return nextTxWindow - radioNow - aAheadUs;
-}
-#endif
-
-void HandleTxBackoffDelay(otInstance *aInstance, uint8_t pan_idx)
-{
-    otRadioFrame *aFrame = &radio_inst[pan_idx].sTransmitFrame;
-    radio_inst[pan_idx].tx_backoff_delay = 0;
-
-#if OPENTHREAD_CONFIG_WAKEUP_END_DEVICE_ENABLE
-    if (radio_inst[pan_idx].sCstPeriod > 0) // must follow cst scheduler
-    {
-        radio_inst[pan_idx].tx_backoff_delay = GetNextCstTransmission(pan_idx,
-                                                                      &(aFrame->mInfo.mTxInfo.mTxDelayBaseTime), &(aFrame->mInfo.mTxInfo.mTxDelay), 2000);
-        SwitchedToIndirectTxSet(aFrame->mInfo.mTxInfo.mTxDelay);
-
-        if (radio_inst[pan_idx].tx_backoff_delay < 1000)
-        {
-            radio_inst[pan_idx].tx_backoff_delay = 0;
-        }
-    }
-    else
-#endif
-        if (aFrame->mInfo.mTxInfo.mTxDelay == 0 && radio_inst[pan_idx].sStayAwake_b.rxOnWhenIdle)
-        {
-            radio_inst[pan_idx].tx_backoff_delay = mac_SetTxNCsmaDetail(true,
-                                                                        3 + radio_inst[pan_idx].sTransmitCcaFailCnt);
-        }
-
-    // Transmit ASAP or do sw csma backoff
-    if (radio_inst[pan_idx].tx_backoff_delay)
-    {
-        BEE_RadioBackoffStart(pan_idx);
-        //otLogNotePlat("TX backoff %lu", radio_inst[pan_idx].tx_backoff_delay);
-    }
-    else
-    {
-        radio_inst[pan_idx].tx_backoff_tmo = true;
-        otTaskletsSignalPending(aInstance);
-    }
-}
-
-void BEE_RadioTxStart(otInstance *aInstance, uint8_t pan_idx)
-{
-    otRadioFrame *aFrame = &radio_inst[pan_idx].sTransmitFrame;
-    radio_inst[pan_idx].sState = OT_RADIO_STATE_TRANSMIT;
-    radio_inst[pan_idx].sTransmitRetry = 0;
-    radio_inst[pan_idx].sTransmitCcaFailCnt = 0;
-
-#if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
-    if (radio_inst[pan_idx].sCslPeriod > 0 && aFrame->mInfo.mTxInfo.mTxDelay == 0)
-    {
-        //otLogNotePlat("SwitchedToIndirectTx");
-        SwitchedToIndirectTxSet(aFrame->mInfo.mTxInfo.mTxDelay);
-    }
-#endif
-
-    HandleTxBackoffDelay(aInstance, pan_idx);
-    otPlatRadioTxStarted(aInstance, aFrame);
 }
 
 otRadioFrame *otPlatRadioGetTransmitBuffer(otInstance *aInstance)
@@ -1436,13 +1456,14 @@ exit:
 void BEE_WakeupProcess(otInstance *aInstance, uint8_t pan_idx)
 {
 #if !defined(_IS_FPGA_) && defined(DLPS_EN) && (DLPS_EN == 1)
-#if defined(BUILD_MATTER) || defined(BUILD_BLE_PERIPHERAL)
+#if defined(BUILD_MATTER)
     extern bool matter_ble_check_connected(void);
     if (matter_ble_check_connected())
     {
         otLogNotePlat("matter_ble_check_connected");
     }
     else
+#endif
     {
         if (app_wakeup_reason != APP_WAKEUP_REASON_NONE)
         {
@@ -1453,7 +1474,6 @@ void BEE_WakeupProcess(otInstance *aInstance, uint8_t pan_idx)
             BEE_SleepDirect();
         }
     }
-#endif
 #endif
 }
 
@@ -1482,6 +1502,10 @@ static void zbpm_exit_pan0(void)
         bt_clk_offset += MAX_BT_CLOCK_COUNTER;
     }
     mac_SetBTClkInt(MAC_BT_TIMER3, &bt_clk_overflow_value);
+    if (app_wakeup_reason == APP_WAKEUP_REASON_NONE)
+    {
+        app_wakeup_reason = APP_WAKEUP_REASON_SLEEP_TMO;
+    }
     mac_notify_pm_wakeup(0);
 }
 
@@ -1501,6 +1525,10 @@ static void zbpm_exit_pan1(void)
         bt_clk_offset += MAX_BT_CLOCK_COUNTER;
     }
     mac_SetBTClkInt(MAC_BT_TIMER3, &bt_clk_overflow_value);
+    if (app_wakeup_reason == APP_WAKEUP_REASON_NONE)
+    {
+        app_wakeup_reason = APP_WAKEUP_REASON_SLEEP_TMO;
+    }
     mac_notify_pm_wakeup(1);
 }
 
@@ -1515,6 +1543,13 @@ void mac_report_pm_wakeup(uint8_t pan_idx)
     handle_tx_backoff_pending(pan_idx);
     micro_handler(pan_idx);
     milli_handler(pan_idx);
+
+    if (app_wakeup_reason == APP_WAKEUP_REASON_NONE)
+    {
+        BEE_EventSend(WAKEUP, pan_idx);
+        if (pan_idx == 0) { otSysEventSignalPending(); }
+        else { zbSysEventSignalPending(); }
+    }
 }
 #endif
 
@@ -1552,6 +1587,25 @@ void BEE_SleepProcess(otInstance *aInstance, uint8_t pan_idx)
     pm_check_inactive("BEE_SleepProcess", true);
 #endif
 
+    //now = otPlatTimeGet();
+    /*if (radio_inst[pan_idx].sStayAwake_b.waitRxPendingData == 1 && now > radio_inst[pan_idx].sWaitRxPendingDataTimestamp)
+    {
+        otLogWarnPlat("Warning: waitRxPendingData timeout %llu", now - radio_inst[pan_idx].sWaitRxPendingDataTimestamp);
+        radio_inst[pan_idx].sStayAwake_b.waitRxPendingData = 0;
+    }*/
+
+    /*if (radio_inst[pan_idx].sStayAwake_b.waitScheduledRxWindow == 1 && now > radio_inst[pan_idx].sWaitScheduledRxWindowTimestamp)
+    {
+        otLogWarnPlat("Warning: waitScheduledRxWindow timeout %llu", now - radio_inst[pan_idx].sWaitScheduledRxWindowTimestamp);
+        radio_inst[pan_idx].sStayAwake_b.waitScheduledRxWindow = 0;
+    }*/
+
+    /*if (radio_inst[pan_idx].sStayAwake_b.waitAckTxDone == 1 && now > radio_inst[pan_idx].sWaitAckTxDoneTimestamp)
+    {
+        otLogWarnPlat("Warning: waitAckTxDone timeout %llu", now - radio_inst[pan_idx].sWaitAckTxDoneTimestamp);
+        radio_inst[pan_idx].sStayAwake_b.waitAckTxDone = 0;
+    }*/
+
     s = os_lock();
     now = otPlatTimeGetWithBTUS(&now_btus);
 
@@ -1560,24 +1614,14 @@ void BEE_SleepProcess(otInstance *aInstance, uint8_t pan_idx)
     uint64_t tmp_us = (micro_alarm_us[pan_idx] > now) ? micro_alarm_us[pan_idx] : 0;
     uint64_t tmp_tx_backoff = (radio_inst[pan_idx].tx_backoff_pending > now) ?
                               radio_inst[pan_idx].tx_backoff_pending : 0;
-
-    // Merge tx_backoff with the appropriate timer (choose earliest non-zero time)
 #if (TX_BACKOFF_TMR_MODE == TX_BACKOFF_USE_US_ALARM)
-    if (tmp_tx_backoff != 0 && (tmp_us == 0 || tmp_tx_backoff < tmp_us))
-    {
-        tmp_us = tmp_tx_backoff;
-    }
+    tmp_us = (tmp_us &&
+              tmp_tx_backoff) ? (tmp_us < tmp_tx_backoff ? tmp_us : tmp_tx_backoff) :
+             (tmp_us ? tmp_us : tmp_tx_backoff);
 #elif (TX_BACKOFF_TMR_MODE == TX_BACKOFF_USE_MS_ALARM)
     if (tmp_tx_backoff != 0 && (tmp_ms == 0 || tmp_tx_backoff < tmp_ms))
     {
         tmp_ms = tmp_tx_backoff;
-    }
-#endif
-
-    if (!tmp_ms && !tmp_us)
-    {
-        os_unlock(s);
-        goto stay_awake;
     }
 
     // Default: use micro alarm if available
@@ -1589,7 +1633,7 @@ void BEE_SleepProcess(otInstance *aInstance, uint8_t pan_idx)
         diff = tmp_ms - now;
     }
 
-    if (diff < 10000)
+    if (diff < kMinSleepPeriodUs)
     {
         os_unlock(s);
         goto stay_awake;
@@ -1607,6 +1651,65 @@ void BEE_SleepProcess(otInstance *aInstance, uint8_t pan_idx)
 
     padapter->enter_callback = (pan_idx == 0) ? zbpm_enter_pan0 : zbpm_enter_pan1;
     padapter->exit_callback = (pan_idx == 0) ? zbpm_exit_pan0 : zbpm_exit_pan1;
+
+    padapter->wakeup_reason = ZBMAC_PM_WAKEUP_UNKNOWN;
+    padapter->error_code = ZBMAC_PM_ERROR_UNKNOWN;
+    padapter->power_mode = ZBMAC_DEEP_SLEEP;
+    //otLogNotePlat("sleep %u us tmp_us %llu", diff, tmp_us);
+
+    os_unlock(s);
+    return;
+
+stay_awake:
+    s = os_lock();
+    if (padapter->power_mode == ZBMAC_DEEP_SLEEP)
+    {
+        padapter->power_mode = ZBMAC_ACTIVE;
+    }
+    os_unlock(s);
+#endif
+
+    /*if (!tmp_ms && !tmp_us)
+    {
+        os_unlock(s);
+        goto stay_awake;
+    }*/
+
+    // Default: use micro alarm if available
+    diff = tmp_us ? tmp_us - now : UINT32_MAX;
+
+    // If milli alarm is valid and triggers at least 1 ms earlier than micro alarm, use milli alarm instead
+    if (tmp_ms && (!tmp_us || tmp_us > tmp_ms + 1000))
+    {
+        diff = tmp_ms - now;
+    }
+
+    if (diff < kMinSleepPeriodUs)
+    {
+        os_unlock(s);
+        goto stay_awake;
+    }
+
+    if (diff > ((MAX_BT_CLOCK_COUNTER >> 1) - 1))
+    {
+        diff = (MAX_BT_CLOCK_COUNTER >> 1) - 1;
+    }
+
+    padapter->cfg.wake_interval_en = 0;
+    padapter->cfg.stage_time_learned = 0;
+    padapter->wakeup_time_us = now_btus + diff;
+    padapter->wakeup_interval_us = 0;
+
+    if (!tmp_ms && !tmp_us)
+    {
+        padapter->enter_callback = NULL;
+        padapter->exit_callback = (pan_idx == 0) ? direct_exit_pan0 : direct_exit_pan1;
+    }
+    else
+    {
+        padapter->enter_callback = (pan_idx == 0) ? zbpm_enter_pan0 : zbpm_enter_pan1;
+        padapter->exit_callback = (pan_idx == 0) ? zbpm_exit_pan0 : zbpm_exit_pan1;
+    }
 
     padapter->wakeup_reason = ZBMAC_PM_WAKEUP_UNKNOWN;
     padapter->error_code = ZBMAC_PM_ERROR_UNKNOWN;
@@ -1642,15 +1745,7 @@ static void direct_exit_pan0(void)
         bt_clk_offset += MAX_BT_CLOCK_COUNTER;
     }
     mac_SetBTClkInt(MAC_BT_TIMER3, &bt_clk_overflow_value);
-    if (app_wakeup_reason == APP_WAKEUP_REASON_UART_RX)
-    {
-        BEE_EventSend(UART_RX, 0);
-    }
-    else
-    {
-        BEE_EventSend(WAKEUP, 0);
-    }
-    otTaskletsSignalPending(NULL);
+    mac_notify_pm_wakeup(0);
 }
 
 static void direct_exit_pan1(void)
@@ -1668,55 +1763,17 @@ static void direct_exit_pan1(void)
         bt_clk_offset += MAX_BT_CLOCK_COUNTER;
     }
     mac_SetBTClkInt(MAC_BT_TIMER3, &bt_clk_overflow_value);
-    if (app_wakeup_reason == APP_WAKEUP_REASON_UART_RX)
-    {
-        app_wakeup_reason = APP_WAKEUP_REASON_NONE;
-        BEE_EventSend(UART_RX, 1);
-    }
-    else
-    {
-        BEE_EventSend(WAKEUP, 1);
-    }
-    otTaskletsSignalPending(NULL);
+    mac_notify_pm_wakeup(1);
 }
 #endif
 
 void BEE_SleepDirect(void)
 {
 #if !defined(_IS_FPGA_) && defined(DLPS_EN) && (DLPS_EN == 1)
+    otLogNotePlat("direct sleep");
     uint8_t pan_idx = mpan_GetCurrentPANIdx();
-    zbpm_adapter_t *padapter = &zbpm_adap;
-    uint32_t curr_us;
-    uint32_t s;
-
-    curr_us = mac_GetCurrentBTUS();
-    s = os_lock();
-    padapter->power_mode = ZBMAC_DEEP_SLEEP;
-    padapter->wakeup_reason = ZBMAC_PM_WAKEUP_UNKNOWN;
-    padapter->error_code = ZBMAC_PM_ERROR_UNKNOWN;
-
-    padapter->stage_time[ZBMAC_PM_CHECK] = 20;
-    padapter->stage_time[ZBMAC_PM_STORE] = 15;
-    padapter->stage_time[ZBMAC_PM_ENTER] = 5;
-    padapter->stage_time[ZBMAC_PM_EXIT] = 5;
-    padapter->stage_time[ZBMAC_PM_RESTORE] = 20;
-    padapter->minimum_sleep_time = 20;
-    padapter->learning_guard_time = 7; // 3 (learning guard time) + 4 (two 16k po_intr drift)
-
-    padapter->cfg.wake_interval_en = 0;
-    padapter->cfg.stage_time_learned = 0;
-    padapter->wakeup_time_us = curr_us + (MAX_BT_CLOCK_COUNTER >> 1) - 1;
-    padapter->wakeup_interval_us = 0;
-
-    //padapter->enter_callback = zbpm_enter_direct;
-    padapter->exit_callback = (pan_idx == 0) ? direct_exit_pan0 : direct_exit_pan1;
-    if (!zbpm_inited)
-    {
-        zbpm_inited = true;
-        zbmac_pm_init(padapter);
-    }
-    os_unlock(s);
-    otLogNotePlat("direct sleep to %u", curr_us + (MAX_BT_CLOCK_COUNTER >> 1) - 1);
+    radio_inst[pan_idx].sStayAwake_b.appForceStayAwake = false;
+    BEE_SleepProcess(NULL, pan_idx);
 #endif
 }
 
@@ -1747,10 +1804,17 @@ void BEE_AlarmMilliProcess(otInstance *aInstance, uint8_t pan_idx)
     otPlatAlarmMilliFired(aInstance);
 }
 
+bool BEE_RadioRxPending(otInstance *aInstance, uint8_t pan_idx)
+{
+    return (radio_inst[pan_idx].rx_head != radio_inst[pan_idx].rx_tail) ? true : false;
+}
+
 bool readFrame(rx_item_t *item, uint8_t pan_idx);
 void BEE_RadioRx(otInstance *aInstance, uint8_t pan_idx)
 {
     rx_item_t *rx_item;
+    //fc_t *p_fc;
+    //uint8_t process_cnt = 0;
 
     while (radio_inst[pan_idx].rx_head != radio_inst[pan_idx].rx_tail)
     {
@@ -1786,7 +1850,6 @@ void waitRxPendingDataTimeout(void *arg)
 
 void BEE_RadioTx(otInstance *aInstance, uint8_t pan_idx)
 {
-    fc_t *p_fc = NULL;
     otRadioFrame *aAckFrame = NULL;
     otError aError = OT_ERROR_NONE;
 
@@ -1803,10 +1866,10 @@ void BEE_RadioTx(otInstance *aInstance, uint8_t pan_idx)
                 goto exit;
             }
             break;
-
         case TX_WAIT_ACK:
             if (radio_inst[pan_idx].ack_receive_done)
             {
+                fc_t *p_fc = NULL;
                 radio_inst[pan_idx].ack_receive_done = false;
                 otLogInfoPlat("TX_WAIT_ACK %u %u cca_fail %lu",
                               radio_inst[pan_idx].sTransmitFrame.mPsdu[2],
@@ -1814,37 +1877,9 @@ void BEE_RadioTx(otInstance *aInstance, uint8_t pan_idx)
                               radio_inst[pan_idx].sTransmitCcaFailCnt);
                 if (otMacFrameIsVersion2015(&radio_inst[pan_idx].sTransmitFrame))
                 {
-#if defined(RT_PLATFORM_BEE3PLUS)
-                    uint8_t ie_hdr_len;
-                    uint8_t *p_frame;
-                    uint8_t *p_ie_hdr;
-                    readFrame(&radio_inst[pan_idx].ack_received, pan_idx);
-                    p_fc = (fc_t *)&radio_inst[pan_idx].ack_received.sReceivedPsdu[1];
-                    p_frame = radio_inst[pan_idx].ack_received.sReceivedPsdu;
-                    p_ie_hdr = mac_802154_frame_parser_ie_header_get(p_frame);
-                    if (p_ie_hdr)
-                    {
-                        ie_hdr_len = radio_inst[pan_idx].ack_received.sReceivedFrames.mPsdu +
-                                     otMacFrameGetHeaderLength(&radio_inst[pan_idx].ack_received.sReceivedFrames) -
-                                     p_ie_hdr;
-                    }
-                    radio_inst[pan_idx].ack_item.sReceivedFrames.mPsdu = &radio_inst[pan_idx].ack_item.sReceivedPsdu[1];
-                    otMacFrameGenerateImmAck(&radio_inst[pan_idx].sTransmitFrame, p_fc->pending,
-                                             &radio_inst[pan_idx].ack_item.sReceivedFrames);
-                    p_fc = (fc_t *)&radio_inst[pan_idx].ack_item.sReceivedPsdu[1];
-                    if (p_ie_hdr)
-                    {
-                        memcpy(&radio_inst[pan_idx].ack_item.sReceivedFrames.mPsdu[3], p_ie_hdr, ie_hdr_len);
-                        p_fc->ie_present = 1;
-                        radio_inst[pan_idx].ack_item.sReceivedFrames.mLength += ie_hdr_len;
-                    }
-                    p_fc->ver = FRAME_VER_2015;
-                    aAckFrame = &radio_inst[pan_idx].ack_item.sReceivedFrames;
-#else
                     readFrame(&radio_inst[pan_idx].ack_item, pan_idx);
                     p_fc = (fc_t *)&radio_inst[pan_idx].ack_item.sReceivedPsdu[1];
                     aAckFrame = &radio_inst[pan_idx].ack_item.sReceivedFrames;
-#endif
                 }
                 else
                 {
@@ -1864,9 +1899,10 @@ void BEE_RadioTx(otInstance *aInstance, uint8_t pan_idx)
                 }
                 //radio_inst[pan_idx].sWaitRxPendingDataTimestamp = otPlatTimeGet() + OPENTHREAD_CONFIG_MAC_DATA_POLL_TIMEOUT * 1000;
 #endif
+                (void)p_fc;
                 goto exit;
             }
-
+        /* FALLTHROUGH */
         case TX_NO_ACK:
             {
                 mac_PTA_Wrokaround();
@@ -1882,7 +1918,7 @@ void BEE_RadioTx(otInstance *aInstance, uint8_t pan_idx)
                     radio_inst[pan_idx].sTransmitRetry++;
                 }
 
-                if (radio_inst[pan_idx].sTransmitRetry == MAX_TRANSMIT_RETRY ||
+                if (radio_inst[pan_idx].sTransmitRetry == MAX_TRANSMIT_RETRY[pan_idx] ||
                     (radio_inst[pan_idx].sTransmitFrame.mInfo.mTxInfo.mTxDelay > 0
 #if OPENTHREAD_CONFIG_MAC_CSL_RECEIVER_ENABLE
                      && !IsSwitchedToIndirectTx(radio_inst[pan_idx].sTransmitFrame.mInfo.mTxInfo.mTxDelay)
@@ -1917,6 +1953,7 @@ void BEE_RadioTx(otInstance *aInstance, uint8_t pan_idx)
                 }
                 radio_inst[pan_idx].sTransmitCcaFailCnt++;
             }
+        /* FALLTHROUGH */
         case TX_TERMED:
             {
                 if (radio_inst[pan_idx].tx_result == TX_TERMED)
@@ -1927,6 +1964,7 @@ void BEE_RadioTx(otInstance *aInstance, uint8_t pan_idx)
                                   radio_inst[pan_idx].sTransmitCcaFailCnt);
                 }
             }
+        /* FALLTHROUGH */
         case TX_CCA_FAIL:
             {
                 if (radio_inst[pan_idx].tx_result == TX_CCA_FAIL)
@@ -1938,6 +1976,7 @@ void BEE_RadioTx(otInstance *aInstance, uint8_t pan_idx)
                     radio_inst[pan_idx].sTransmitCcaFailCnt++;
                 }
             }
+        /* FALLTHROUGH */
         case TX_PTA_FAIL:
             {
                 mac_PTA_Wrokaround();
@@ -2086,7 +2125,7 @@ bool readFrame(rx_item_t *item, uint8_t pan_idx)
 
     //mac_Rx((uint8_t *)prx_fifo);
     prx_fifo_tail = (mac_rxfifo_tail_t *)&item->sReceivedPsdu[1 + prx_fifo->frm_len];
-    channel = radio_inst[pan_idx].rx_queue[radio_inst[pan_idx].rx_tail].sReceivedChannel;
+    channel = item->sReceivedChannel;
     // convert 15.4's channel to BT's channel index, which is started from 2402 MHz
     bt_channel = ((channel - 10) * 5) - 2; // 15.4 channel is started from channell (2405 MHz)
     rssi = mac_GetRSSIFromRaw(prx_fifo_tail->rssi, bt_channel);
@@ -2500,7 +2539,7 @@ APP_RAM_TEXT_SECTION void txnterr_handler(uint8_t pan_idx, uint32_t txat_status)
 APP_RAM_TEXT_SECTION void txn_handler(uint8_t pan_idx, uint32_t txn_trig)
 {
     uint8_t tx_status = mac_GetTxNStatus();
-#if defined(RT_PLATFORM_BB2ULTRA) || defined(RT_PLATFORM_RTL8922D)
+#if defined(RT_PLATFORM_RTL87X3G) || defined(RT_PLATFORM_RTL8922D)
     uint32_t pta_counter = mac_GetPTACounter();
     if (pta_counter & 0xffff0000)
     {
@@ -2584,7 +2623,7 @@ static void handleEnhAckTransmission(uint8_t pan_idx, uint64_t now, int8_t rssi,
         radio_inst[pan_idx].sStayAwake_b.waitAckTxDone = 1;
         startWaitAckTxDoneProtection(pan_idx,
                                      (ackPhrTxTime + mhr_duration_us + PHR_DURATION_US +
-                                     (radio_inst[pan_idx].enhack_frm_len + 2) * 2 * PHY_SYMBOL_TIME),
+                                      (radio_inst[pan_idx].enhack_frm_len + 2) * 2 * PHY_SYMBOL_TIME),
                                      0);
     }
 }
@@ -2594,10 +2633,14 @@ static void handleEnhAckTx(int pan_idx, uint64_t now)
     int8_t rssi = 0; // Default RSSI value
     uint8_t lqi = 0; // Default LQI value
 
+//#if OPENTHREAD_CONFIG_WAKEUP_END_DEVICE_ENABLE
+#if 0
+    mac_SetTxEnhAckPending(radio_inst[pan_idx].enhack_frm_len);
+#else
 #if OPENTHREAD_CONFIG_MLE_LINK_METRICS_SUBJECT_ENABLE
     if (radio_inst[pan_idx].enhAckProbingDataLen > 0)
     {
-#if defined(RT_PLATFORM_BB2ULTRA) || defined(RT_PLATFORM_RTL8922D)
+#if defined(RT_PLATFORM_RTL87X3G) || defined(RT_PLATFORM_RTL8922D)
         uint16_t rssi_raw;
         mac_GetRxBasebandReport(&rssi_raw, &lqi);
         rssi = mac_GetRSSIFromRaw(rssi_raw, mac_GetChannel());
@@ -2608,6 +2651,7 @@ static void handleEnhAckTx(int pan_idx, uint64_t now)
     }
 #endif
     handleEnhAckTransmission(pan_idx, now, rssi, lqi);
+#endif
 }
 
 APP_RAM_TEXT_SECTION void rxely_handler(uint8_t pan_idx, uint32_t arg)
@@ -2752,7 +2796,7 @@ APP_RAM_TEXT_SECTION void rxdone_handler(uint8_t pan_idx, uint32_t arg)
     int8_t rssi;
     uint8_t lqi;
     uint32_t frame_type = mac_GetRxFrmType();
-#if defined(RT_PLATFORM_BB2ULTRA) || defined(RT_PLATFORM_RTL8922D)
+#if defined(RT_PLATFORM_RTL87X3G) || defined(RT_PLATFORM_RTL8922D)
     uint8_t *buf = (uint8_t *)arg;
 #else
     uint8_t *buf = NULL;
@@ -2760,22 +2804,20 @@ APP_RAM_TEXT_SECTION void rxdone_handler(uint8_t pan_idx, uint32_t arg)
 
     if (FRAME_TYPE_ACK == frame_type)
     {
-#if defined(RT_PLATFORM_BEE3PLUS)
-        mac_Rx(radio_inst[pan_idx].ack_received.sReceivedPsdu);
-#else
         mac_Rx(radio_inst[pan_idx].ack_item.sReceivedPsdu);
-#endif
         radio_inst[pan_idx].ack_receive_done = true;
     }
     else
     {
-        if (buf == NULL)
-        {
-            mac_Rx(radio_inst[pan_idx].rx_queue[radio_inst[pan_idx].rx_tail].sReceivedPsdu);
-        }
-        else
+#if defined(RT_PLATFORM_RTL87X3G) || defined(RT_PLATFORM_RTL8922D)
+        if (buf != NULL)
         {
             memcpy(radio_inst[pan_idx].rx_queue[radio_inst[pan_idx].rx_tail].sReceivedPsdu, buf, buf[0] + 8);
+        }
+        else
+#endif
+        {
+            mac_Rx(radio_inst[pan_idx].rx_queue[radio_inst[pan_idx].rx_tail].sReceivedPsdu);
         }
 
         frm_len = radio_inst[pan_idx].rx_queue[radio_inst[pan_idx].rx_tail].sReceivedPsdu[0];
@@ -2833,10 +2875,10 @@ APP_RAM_TEXT_SECTION void handle_tx_backoff_pending(uint8_t pan_idx)
         uint32_t now_btus;
         uint64_t now;
         now = otPlatTimeGetWithBTUS(&now_btus);
-        if (radio_inst[pan_idx].tx_backoff_pending < now + 20)
+        if (radio_inst[pan_idx].tx_backoff_pending < now + kMinScheduleAdvanceUs)
         {
             radio_inst[pan_idx].tx_backoff_pending = 0;
-            radio_inst[pan_idx].tx_backoff_tmo = true;
+            BEE_EventSend(TX_START, pan_idx);
             if (pan_idx == 0) { otSysEventSignalPending(); }
             else { zbSysEventSignalPending(); }
         }
@@ -2874,7 +2916,7 @@ APP_RAM_TEXT_SECTION void edscan_handler(uint8_t pan_idx, uint32_t arg)
     os_sem_give(radio_inst[pan_idx].radio_done);
 }
 
-#if defined(RT_PLATFORM_BB2ULTRA) || defined(RT_PLATFORM_RTL8922D)
+#if defined(RT_PLATFORM_RTL87X3G) || defined(RT_PLATFORM_RTL8922D)
 APP_RAM_TEXT_SECTION void btcmp4_handler(uint8_t pan_idx, uint32_t arg)
 {
 #if (TX_BACKOFF_TMR_MODE == TX_BACKOFF_USE_MS_ALARM)

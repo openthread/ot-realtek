@@ -33,6 +33,8 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR ${OT_CMAKE_NINJA_TARGET
 elseif(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-mtd")
     set(OT_PLATFORM "external" CACHE STRING "")
 else()
+
+if(${RT_PLATFORM} STREQUAL "rtl87x2g")
     set(OT_PLATFORM "external" CACHE STRING "")
     set(OT_SLAAC ON CACHE BOOL "")
     set(OT_BORDER_AGENT ON CACHE BOOL "")
@@ -64,11 +66,15 @@ else()
     set(OT_LINK_METRICS_SUBJECT ON CACHE BOOL "")
     set(OT_CHANNEL_MONITOR OFF CACHE BOOL "")
     set(OT_CHANNEL_MANAGER OFF CACHE BOOL "")
-if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-mtd")
+
+if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-ftd" 
+OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-mtd"
+OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp")
     set(OT_EXTERNAL_MBEDTLS "mbedtls" CACHE STRING "")
 endif()
 endif()
 
+endif()
 
 set(OT_PLATFORM_LIB "openthread-${RT_PLATFORM}")
 

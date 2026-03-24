@@ -32,9 +32,7 @@
 //#include <sys/time.h>
 
 #include "platform-bee.h"
-
 #include <openthread/config.h>
-#include <openthread/platform/alarm-milli.h>
 #include <openthread/platform/radio.h>
 
 

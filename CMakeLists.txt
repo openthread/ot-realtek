@@ -34,8 +34,8 @@ set(OT_REALTEK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 include(script/${BUILD_TYPE}.cmake)
 
 set(RT_PLATFORM_VALUES
-    "bee4"
-    "bee3plus"
+    "rtl87x2g"
+    "rtl8752h"
     "rtl8852d"
     "rtl8922d"
     "bb2ultra"

@@ -38,7 +38,6 @@
 
 #include "platform-bee.h"
 #include "utils/code_utils.h"
-#include "common/logging.hpp"
 
 void BEE_RandomInit(void)
 {
