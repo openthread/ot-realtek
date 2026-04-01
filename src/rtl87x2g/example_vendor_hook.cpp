@@ -133,7 +133,7 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
         break;
 
     case SPINEL_PROP_VENDOR_RTK_VID_PID:
-        sprintf(str, "VID=%X & PID=%X", vid, pid);
+        sprintf(str, "VID=%X & PID=%X", (unsigned int)vid, (unsigned int)pid);
         error = mEncoder.WriteUtf8((const char *)str);
         break;
 
@@ -141,10 +141,10 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
         image_id = IMG_MCUAPP;
         get_ota_bank_image_version(true, image_id, &current_image_ver);
         sprintf(str, "app current_ver %u.%u.%u.%u",
-                current_image_ver.ver_info.img_sub_version._version_major,
-                current_image_ver.ver_info.img_sub_version._version_minor,
-                current_image_ver.ver_info.img_sub_version._version_revision,
-                current_image_ver.ver_info.img_sub_version._version_reserve);
+                (unsigned int)current_image_ver.ver_info.img_sub_version._version_major,
+                (unsigned int)current_image_ver.ver_info.img_sub_version._version_minor,
+                (unsigned int)current_image_ver.ver_info.img_sub_version._version_revision,
+                (unsigned int)current_image_ver.ver_info.img_sub_version._version_reserve);
         error = mEncoder.WriteUtf8((const char *)str);
         break;
 
@@ -155,10 +155,10 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
         {
             get_ota_bank_image_version(true, image_id, &current_image_ver);
             sprintf(str, "app data1 current_ver %u.%u.%u.%u",
-                    current_image_ver.ver_info.img_sub_version._version_major,
-                    current_image_ver.ver_info.img_sub_version._version_minor,
-                    current_image_ver.ver_info.img_sub_version._version_revision,
-                    current_image_ver.ver_info.img_sub_version._version_reserve);
+                    (unsigned int)current_image_ver.ver_info.img_sub_version._version_major,
+                    (unsigned int)current_image_ver.ver_info.img_sub_version._version_minor,
+                    (unsigned int)current_image_ver.ver_info.img_sub_version._version_revision,
+                    (unsigned int)current_image_ver.ver_info.img_sub_version._version_reserve);
             error = mEncoder.WriteUtf8((const char *)str);
         }
         else
