@@ -133,14 +133,14 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
         break;
 
     case SPINEL_PROP_VENDOR_RTK_VID_PID:
-        sprintf(str, "VID=%lX & PID=%lX", vid, pid);
+        sprintf(str, "VID=%X & PID=%X", vid, pid);
         error = mEncoder.WriteUtf8((const char *)str);
         break;
 
     case SPINEL_PROP_VENDOR_RTK_VERSION:
         image_id = IMG_MCUAPP;
         get_ota_bank_image_version(true, image_id, &current_image_ver);
-        sprintf(str, "app current_ver %d.%d.%d.%d",
+        sprintf(str, "app current_ver %u.%u.%u.%u",
                 current_image_ver.ver_info.img_sub_version._version_major,
                 current_image_ver.ver_info.img_sub_version._version_minor,
                 current_image_ver.ver_info.img_sub_version._version_revision,
@@ -154,7 +154,7 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
         if ((0 != active_bank_image_size) && (0xffffffff != active_bank_image_size))
         {
             get_ota_bank_image_version(true, image_id, &current_image_ver);
-            sprintf(str, "app data1 current_ver %d.%d.%d.%d",
+            sprintf(str, "app data1 current_ver %u.%u.%u.%u",
                     current_image_ver.ver_info.img_sub_version._version_major,
                     current_image_ver.ver_info.img_sub_version._version_minor,
                     current_image_ver.ver_info.img_sub_version._version_revision,
@@ -168,10 +168,6 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
         }
         break;
 
-    case SPINEL_PROP_VENDOR_RTK_CONFIG_READ:
-        mEncoder.WriteDataWithLen((uint8_t *)(&config_param), sizeof(rtk_config_param));
-        break;
-
     default:
         error = OT_ERROR_NOT_FOUND;
         break;
@@ -183,8 +179,10 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
 otError NcpBase::VendorSetPropertyHandler(spinel_prop_key_t aPropKey)
 {
     otError error = OT_ERROR_NONE;
+#if FEATURE_SUPPORT_RTK_SIGN || FEATURE_SUPPORT_CFU
     const uint8_t *data;
     uint16_t        dataLen;
+#endif
 
     switch (aPropKey)
     {
@@ -217,31 +215,12 @@ otError NcpBase::VendorSetPropertyHandler(spinel_prop_key_t aPropKey)
 
     case SPINEL_PROP_VENDOR_RTK_READ_REGISTER:
         mDecoder.ReadUint32(raddr);
-        mac_read_reg(raddr, rvalue);
         break;
-
 
     case SPINEL_PROP_VENDOR_RTK_WRITE_REGISTER:
         mDecoder.ReadUtf8(wdata);
         src = strtok((char *)wdata, " ");
         value = strtok(NULL, " ");
-        mac_write_reg((uint8_t *)src, (uint8_t *)value);
-        break;
-
-    case SPINEL_PROP_VENDOR_RTK_CONFIG_WTITE:
-        mDecoder.ReadDataWithLen(data, dataLen);
-        if (false == rtk_write_config_param(data, dataLen))
-        {
-            error = OT_ERROR_FAILED;
-        }
-        break;
-
-    case SPINEL_PROP_VENDOR_RTK_FLOW_CONTROL:
-        mDecoder.ReadDataWithLen(data, dataLen);
-        if (false == rtk_enable_flow_control(data, dataLen))
-        {
-            error = OT_ERROR_FAILED;
-        }
         break;
 
     default:
