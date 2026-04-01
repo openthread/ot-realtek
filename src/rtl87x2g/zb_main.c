@@ -81,60 +81,14 @@ extern int32_t matter_kvs_clean(void);
 void zb_pin_mux_init(void)
 {
 #if (1 == BUILD_RCP)
-#ifdef BOARD_RTL8771GTV
-    // UART for CLI
-    Pad_Config(config_param.tx_pin, PAD_PINMUX_MODE, PAD_IS_PWRON, PAD_PULL_UP, PAD_OUT_DISABLE,
+    // UART for CLI (use static pin definitions; runtime config_param is not
+    // available in the public rtl87x2g_sdk)
+    Pad_Config(ZB_CLI_UART_TX_PIN, PAD_PINMUX_MODE, PAD_IS_PWRON, PAD_PULL_UP, PAD_OUT_DISABLE,
                PAD_OUT_HIGH);
-    Pad_Config(config_param.rx_pin, PAD_PINMUX_MODE, PAD_IS_PWRON, PAD_PULL_UP, PAD_OUT_DISABLE,
+    Pad_Config(ZB_CLI_UART_RX_PIN, PAD_PINMUX_MODE, PAD_IS_PWRON, PAD_PULL_UP, PAD_OUT_DISABLE,
                PAD_OUT_HIGH);
-    if (((config_param.func_msk & (1 << HW_FLOWCTL_OFFSET)) == 0x00) ||
-        ((config_param.func_msk & (1 << FORCE_HW_FLOWCTL_OFFSET)) == 0x00))
-    {
-        Pad_Config(config_param.rts_pin, PAD_PINMUX_MODE, PAD_IS_PWRON, PAD_PULL_NONE, PAD_OUT_DISABLE,
-                   PAD_OUT_LOW);
-        Pad_Config(config_param.cts_pin, PAD_PINMUX_MODE, PAD_IS_PWRON, PAD_PULL_NONE, PAD_OUT_DISABLE,
-                   PAD_OUT_LOW);
-    }
-
-    Pinmux_Config(config_param.tx_pin, ZB_CLI_UART_TX);
-    Pinmux_Config(config_param.rx_pin, ZB_CLI_UART_RX);
-    if (((config_param.func_msk & (1 << HW_FLOWCTL_OFFSET)) == 0x00) ||
-        ((config_param.func_msk & (1 << FORCE_HW_FLOWCTL_OFFSET)) == 0x00))
-    {
-        Pinmux_Config(config_param.rts_pin, ZB_CLI_UART_RTS);
-        Pinmux_Config(config_param.cts_pin, ZB_CLI_UART_CTS);
-    }
-#endif
-
-    // External PA
-    if (config_param.ext_pa != 0xff)
-    {
-        if (config_param.ext_pa_lna_ploatiry & (1 << 0))
-        {
-            Pad_Config(config_param.ext_pa, PAD_PINMUX_MODE, PAD_IS_PWRON, PAD_PULL_UP, PAD_OUT_DISABLE,
-                       PAD_OUT_HIGH);
-        }
-        else
-        {
-            Pad_Config(config_param.ext_pa, PAD_PINMUX_MODE, PAD_IS_PWRON, PAD_PULL_UP, PAD_OUT_DISABLE,
-                       PAD_OUT_LOW);
-        }
-    }
-
-    // External LNA
-    if (config_param.ext_lna != 0xff)
-    {
-        if (config_param.ext_pa_lna_ploatiry & (1 << 1))
-        {
-            Pad_Config(config_param.ext_lna, PAD_PINMUX_MODE, PAD_IS_PWRON, PAD_PULL_UP, PAD_OUT_DISABLE,
-                       PAD_OUT_HIGH);
-        }
-        else
-        {
-            Pad_Config(config_param.ext_lna, PAD_PINMUX_MODE, PAD_IS_PWRON, PAD_PULL_UP, PAD_OUT_DISABLE,
-                       PAD_OUT_LOW);
-        }
-    }
+    Pinmux_Config(ZB_CLI_UART_TX_PIN, ZB_CLI_UART_TX);
+    Pinmux_Config(ZB_CLI_UART_RX_PIN, ZB_CLI_UART_RX);
 #else
     // UART for CLI
     Pad_Config(ZB_CLI_UART_TX_PIN, PAD_PINMUX_MODE, PAD_IS_PWRON, PAD_PULL_UP, PAD_OUT_DISABLE,
@@ -201,20 +155,10 @@ void io_uart_dlps_exit(void)
 void zb_periheral_drv_init(void)
 {
 #if (1 == BUILD_RCP)
-    DBG_DIRECT("uart_tx_pin %d", config_param.tx_pin);
-    DBG_DIRECT("uart_rx_pin %d", config_param.rx_pin);
-    DBG_DIRECT("uart_rts_pin %d", config_param.rts_pin);
-    DBG_DIRECT("uart_cts_pin %d", config_param.cts_pin);
-    DBG_DIRECT("uart_func_msk %x", config_param.func_msk);
-    DBG_DIRECT("uart_baudrate %d", config_param.baud_rate);;
-    DBG_DIRECT("pta_dis %x", config_param.pta_dis);
-    DBG_DIRECT("pta_wl_act %d", config_param.pta_wl_act);
-    DBG_DIRECT("pta_bt_act %d", config_param.pta_bt_act);
-    DBG_DIRECT("pta_bt_stat %d", config_param.pta_bt_stat);
-    DBG_DIRECT("pta_bt_clk %d", config_param.pta_bt_clk);
-    DBG_DIRECT("ext_pa %d", config_param.ext_pa);
-    DBG_DIRECT("ext_lna %d", config_param.ext_lna);
-    DBG_DIRECT("ext_pa_lna_polarity %x", config_param.ext_pa_lna_ploatiry);
+    /* config_param runtime values are not available in the public rtl87x2g_sdk;
+     * print static pin definitions instead. */
+    DBG_DIRECT("uart_tx_pin %d", ZB_CLI_UART_TX_PIN);
+    DBG_DIRECT("uart_rx_pin %d", ZB_CLI_UART_RX_PIN);
 #endif
 }
 
@@ -286,8 +230,8 @@ extern void startup_task_init(void);
 void zb_task_init(void)
 {
 #if (1 == BUILD_RCP)
-    extern void mac_LoadConfigParam(void);
-    mac_LoadConfigParam();
+    /* mac_LoadConfigParam() loads runtime config from Flash via internal SDK;
+     * not available in the public rtl87x2g_sdk, so skip for public builds. */
 #endif
 
     mac_Initialize_Patch();

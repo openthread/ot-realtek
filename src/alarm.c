@@ -64,6 +64,37 @@ volatile uint64_t micro_alarm_us[MAX_PAN_NUM];
 volatile uint64_t milli_alarm_us[MAX_PAN_NUM];
 
 //------------------------------------------------------------------------------
+// Fast 64-bit arithmetic helpers (avoid __aeabi_uldiv / __aeabi_lmul in Flash)
+//------------------------------------------------------------------------------
+
+/**
+ * 64-bit divide by 1000 using only HW 32-bit UDIV instructions.
+ * Splits into three 32-bit divisions via long-division with 16-bit digits.
+ */
+static inline uint64_t div_1000(uint64_t x)
+{
+    uint32_t lo = (uint32_t)x;
+    uint32_t hi = (uint32_t)(x >> 32);
+
+    if (hi == 0)
+    {
+        return lo / 1000;
+    }
+
+    uint32_t q_hi = hi / 1000;
+    uint32_t r_hi = hi % 1000;
+
+    uint32_t mid = (r_hi << 16) | (lo >> 16);
+    uint32_t q_mid = mid / 1000;
+    uint32_t r_mid = mid % 1000;
+
+    uint32_t bot = (r_mid << 16) | (lo & 0xFFFF);
+    uint32_t q_lo = bot / 1000;
+
+    return ((uint64_t)q_hi << 32) | ((uint64_t)q_mid << 16) | q_lo;
+}
+
+//------------------------------------------------------------------------------
 // Common helpers
 //------------------------------------------------------------------------------
 
@@ -120,12 +151,12 @@ static inline void FireAlarmNow(AlarmKind kind, uint8_t pan_idx)
  * Schedule an alarm or fire immediately if too close.
  * Returns true if scheduled; false if fired immediately.
  */
-static bool ScheduleOrFire(AlarmKind kind,
-                           otInstance *aInstance,
-                           uint8_t     pan_idx,
-                           uint64_t    target_us,
-                           uint64_t    now_us,
-                           uint32_t    curr_hw_us)
+APP_RAM_TEXT_SECTION static bool ScheduleOrFire(AlarmKind kind,
+                                                otInstance *aInstance,
+                                                uint8_t     pan_idx,
+                                                uint64_t    target_us,
+                                                uint64_t    now_us,
+                                                uint32_t    curr_hw_us)
 {
     uint32_t diff = 0;
 
@@ -237,10 +268,10 @@ APP_RAM_TEXT_SECTION void milli_handler(uint8_t pan_idx)
 uint32_t otPlatAlarmMilliGetNow(void)
 {
     // Convert microseconds to milliseconds as per API contract.
-    return (uint32_t)(otPlatTimeGet() / 1000);
+    return (uint32_t)div_1000(otPlatTimeGet());
 }
 
-void otPlatAlarmMilliStartAt(otInstance *aInstance, uint32_t t0, uint32_t dt)
+APP_RAM_TEXT_SECTION void otPlatAlarmMilliStartAt(otInstance *aInstance, uint32_t t0, uint32_t dt)
 {
     const uint8_t pan_idx = mpan_GetCurrentPANIdx();
 
@@ -260,7 +291,7 @@ void otPlatAlarmMilliStartAt(otInstance *aInstance, uint32_t t0, uint32_t dt)
     uint64_t now_us  = bt_clk_offset + curr_us;
 
     // For milli alarm, original logic converts using millisecond base.
-    uint64_t now_ms    = now_us / 1000;
+    uint64_t now_ms    = div_1000(now_us);
     uint64_t target_ms = mac_ConvertT0AndDtTo64BitTime(t0, dt, &now_ms);
     uint64_t target_us = target_ms * 1000;
 
