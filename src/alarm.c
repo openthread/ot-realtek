@@ -51,11 +51,10 @@ extern void pm_check_inactive(const char *callerStr, bool wakeup);
 
 // Minimum ahead-of-time (in us) required to program HW timer; otherwise, fire immediately.
 #if defined(RT_PLATFORM_RTL8752H)
-const uint32_t kMinScheduleAdvanceUs = 100;
+const uint32_t kMinScheduleAdvanceUs = 30;
 #else
 const uint32_t kMinScheduleAdvanceUs = 20;
 #endif
-
 //------------------------------------------------------------------------------
 // State
 //------------------------------------------------------------------------------
@@ -151,6 +150,7 @@ static inline void FireAlarmNow(AlarmKind kind, uint8_t pan_idx)
  * Schedule an alarm or fire immediately if too close.
  * Returns true if scheduled; false if fired immediately.
  */
+
 APP_RAM_TEXT_SECTION static bool ScheduleOrFire(AlarmKind kind,
                                                 otInstance *aInstance,
                                                 uint8_t     pan_idx,
@@ -296,7 +296,6 @@ APP_RAM_TEXT_SECTION void otPlatAlarmMilliStartAt(otInstance *aInstance, uint32_
     uint64_t target_us = target_ms * 1000;
 
     milli_alarm_us[pan_idx] = target_us;
-
     (void)ScheduleOrFire(kAlarmMilli, aInstance, pan_idx, target_us, now_us, curr_us);
     os_unlock(s);
 }

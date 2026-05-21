@@ -47,10 +47,11 @@
 #include "zb_tst_cfg.h"
 #include "dbg_printf.h"
 #include "mem_config.h"
+#include "threading_alt.h"
 #include "crypto_hw_locks.h"
-
-// Forward declaration from mbedtls threading_alt
-extern void mbedtls_threading_alt_init(void);
+#ifdef BUILD_MATTER
+#include "matter_ble.h"
+#endif
 
 /** @addtogroup  MAC_TASK_DEMO
     * @{
@@ -91,8 +92,15 @@ void thread_test_task(void *p_param)
 {
     DBG_DIRECT("%s", __func__);
 
+//#if BUILD_NCP
+//#else
     mbedtls_threading_alt_init();
     crypto_hw_locks_init();
+//#endif
+
+#if RTK_OTBR
+    TCPIP_Init();
+#endif
 
     uart_init_internal();
     main(0, NULL);
@@ -117,13 +125,11 @@ void matter_test_task(void *p_param)
 #endif
     DBG_DIRECT("%s", __func__);
 
-#if BUILD_NCP
-#else
     mbedtls_threading_alt_init();
     crypto_hw_locks_init();
-#endif
 
     uart_init_internal();
+    matter_ble_init(1);
     InitGPIO();
     ChipTest();
     DBG_DIRECT("matter task done!");
