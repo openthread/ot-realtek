@@ -32,7 +32,7 @@ add_library(openthread-rtl87x2g
     ../entropy.c
     flash.c
     logging.c
-    ../misc.c
+    misc.c
     ../radio.c
     system.c
     uart.c
@@ -74,11 +74,11 @@ target_link_libraries(openthread-rtl87x2g
     PRIVATE
         ${OT_MBEDTLS}
         ot-config
+        rtl87x2g-internal
         rtl87x2g-peripheral
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_lib/lib/rtl87x2g/gcc/libusb.a"
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_hal/lib/rtl87x2g/gcc/libusb_hal.a"
         "${REALTEK_SDK_ROOT}/subsys/bluetooth/gap_ext/lib/rtl87x2g/bt_host_0_0/gcc/libgap_utils.a"
-        "${REALTEK_SDK_ROOT}/lib/rtl87x2g/librtl87x2g-internal.a"
         "${REALTEK_SDK_ROOT}/subsys/mac_driver/portable/rtl87x2g/rtl87x2g-internal.axf"
         "${REALTEK_SDK_ROOT}/bsp/driver/driver_lib/lib/rtl87x2g/gcc/librtl87x2g_io.a"
         "${REALTEK_SDK_ROOT}/bsp/sdk_lib/lib/rtl87x2g/gcc/librtl87x2g_sdk.a"
@@ -142,11 +142,6 @@ target_compile_options(openthread-rtl87x2g
 )
 
 target_include_directories(openthread-rtl87x2g
-    BEFORE PRIVATE
-        ${REALTEK_SDK_ROOT}/subsys/mbedtls/port/inc
-)
-
-target_include_directories(openthread-rtl87x2g
     PRIVATE
         ${OT_PUBLIC_INCLUDES}
         ${OT_REALTEK_ROOT}/src/core
@@ -164,13 +159,25 @@ target_include_directories(openthread-rtl87x2g
 
 if(${BUILD_TYPE} STREQUAL "dev")
     # Add explicit dependency on mbedtls libraries to ensure they are built before POST_BUILD commands
-    if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-ftd" OR
+    if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd" OR
+       ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp" OR
+       ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-ftd" OR
        ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-mtd" OR
        ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
        ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd")
         add_dependencies(openthread-rtl87x2g mbedcrypto mbedtls mbedx509)
     endif()
 
+if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd")
+    add_custom_command(
+        TARGET openthread-rtl87x2g
+        POST_BUILD
+        COMMAND mkdir -p ${OT_REALTEK_ROOT}/lib/${RT_PLATFORM}/${BUILD_TARGET} && cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/librtl87x2g-internal.a ${OT_REALTEK_ROOT}/lib/${RT_PLATFORM}/${BUILD_TARGET}/
+        COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedcrypto.a ${OT_REALTEK_ROOT}/lib/${RT_PLATFORM}/
+        COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedtls.a ${OT_REALTEK_ROOT}/lib/${RT_PLATFORM}/
+        COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedx509.a ${OT_REALTEK_ROOT}/lib/${RT_PLATFORM}/
+    )
+else()
     add_custom_command(
         TARGET openthread-rtl87x2g
         POST_BUILD
@@ -181,20 +188,64 @@ if(${BUILD_TYPE} STREQUAL "dev")
         COMMAND cd ${OT_REALTEK_ROOT}/openthread && git reset --hard HEAD && git clean -f -d
     )
 endif()
+endif()
 
 ##################################################
-# ot-cli-ftd or ot-ncp-ftd
+# ot-cli-ftd
 ##################################################
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-ftd")
-    target_sources(ot-cli-ftd
-        PRIVATE
-        ${OT_REALTEK_ROOT}/src/rtl87x2g/main_ns.c
-    )
 
-    target_include_directories(ot-cli-ftd
-        PRIVATE
-            ${OT_REALTEK_ROOT}/src/rtl87x2g/${BUILD_TARGET}
-    )
+    if(NOT DEFINED TEST_HCI_RESET)
+    set(TEST_HCI_RESET "OFF")
+    endif()
+
+    if(${TEST_HCI_RESET} STREQUAL "ON")
+        target_compile_definitions(openthread-rtl87x2g PRIVATE "TEST_HCI_RESET")
+    endif()
+
+    if(NOT DEFINED BLE_PERIPHERAL)
+    set(BLE_PERIPHERAL "OFF")
+    endif()
+
+    if(${BLE_PERIPHERAL} STREQUAL "ON")
+        target_sources(ot-cli-ftd
+            PRIVATE
+            ${OT_REALTEK_ROOT}/src/rtl87x2g/main_ns.c
+            ${REALTEK_SDK_ROOT}/subsys/bluetooth/gatt_profile/src/server/bas.c
+            ${OT_REALTEK_ROOT}/src/rtl87x2g/simple_ble_service_nus.c
+            ${REALTEK_SDK_ROOT}/subsys/bluetooth/gatt_profile/src/client/ancs_client.c
+            ${REALTEK_SDK_ROOT}/samples/bluetooth/ble_peripheral/src/ancs.c
+            ${REALTEK_SDK_ROOT}/samples/bluetooth/ble_peripheral/src/app_task.c
+            ${OT_REALTEK_ROOT}/src/rtl87x2g/peripheral_app.c
+        )
+
+        target_include_directories(ot-cli-ftd
+            PRIVATE
+                ${OT_REALTEK_ROOT}/src/rtl87x2g/${BUILD_TARGET}
+                ${REALTEK_SDK_ROOT}/samples/bluetooth/ble_peripheral/src
+                ${REALTEK_SDK_ROOT}/subsys/bluetooth/gatt_profile/inc/server
+                ${REALTEK_SDK_ROOT}/subsys/bluetooth/gatt_profile/inc/client
+                ${REALTEK_SDK_ROOT}/subsys/bluetooth/bt_host/inc
+                ${REALTEK_SDK_ROOT}/bin/rtl87x2g/bt_host_image/bt_host_0_0
+        )
+
+        target_compile_options(ot-cli-ftd
+            PRIVATE
+                -include ${REALTEK_SDK_ROOT}/samples/bluetooth/ble_peripheral/src/app_flags.h
+        )
+        target_compile_definitions(ot-cli-ftd PRIVATE "BUILD_BLE_PERIPHERAL")
+        target_compile_definitions(openthread-rtl87x2g PRIVATE "BUILD_BLE_PERIPHERAL")
+    else()
+        target_sources(ot-cli-ftd
+            PRIVATE
+            ${OT_REALTEK_ROOT}/src/rtl87x2g/main_ns.c
+        )
+
+        target_include_directories(ot-cli-ftd
+            PRIVATE
+                ${OT_REALTEK_ROOT}/src/rtl87x2g/${BUILD_TARGET}
+        )
+    endif()
 
     target_compile_definitions(ot-cli-ftd
         PRIVATE
@@ -210,6 +261,9 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-ftd")
     endif()
 endif()
 
+##################################################
+# ot-ncp-ftd
+##################################################
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd")
     target_sources(ot-ncp-ftd
         PRIVATE
@@ -224,7 +278,10 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd")
     target_compile_definitions(ot-ncp-ftd
         PRIVATE
             "DLPS_EN=0"
+            "BUILD_NCP"
     )
+
+    target_compile_definitions(openthread-rtl87x2g PRIVATE "BUILD_NCP")
 endif()
 
 ##################################################
@@ -239,7 +296,7 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-mtd")
     if(${BLE_PERIPHERAL} STREQUAL "ON")
         target_sources(ot-cli-mtd
             PRIVATE
-            ${OT_REALTEK_ROOT}/src/rtl87x2g/main.c
+            ${OT_REALTEK_ROOT}/src/rtl87x2g/main_ns.c
             ${REALTEK_SDK_ROOT}/bsp/power/io_dlps.c
             ${REALTEK_SDK_ROOT}/subsys/bluetooth/gatt_profile/src/server/bas.c
             ${OT_REALTEK_ROOT}/src/rtl87x2g/simple_ble_service_nus.c
@@ -263,7 +320,7 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-mtd")
             PRIVATE
                 -include ${REALTEK_SDK_ROOT}/samples/bluetooth/ble_peripheral/src/app_flags.h
         )
-
+        target_compile_definitions(ot-cli-mtd PRIVATE "BUILD_BLE_PERIPHERAL")
         target_compile_definitions(openthread-rtl87x2g PRIVATE "BUILD_BLE_PERIPHERAL")
     else()
         target_sources(ot-cli-mtd
@@ -325,8 +382,8 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp" OR matter_enable_cfu)
         else()
             target_link_libraries(openthread-rtl87x2g
                 PRIVATE
-                    ${PROJECT_SOURCE_DIR}/lib/rtl87x2g/librtk_sign.a
-                    ${PROJECT_SOURCE_DIR}/lib/rtl87x2g/libmbedcrypto.a
+                    ${OT_REALTEK_ROOT}/lib/rtl87x2g/librtk_sign.a
+                    ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libmbedcrypto.a
             )
         endif()
     endif()
@@ -345,7 +402,7 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp" OR matter_enable_cfu)
         ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/cfu_application.c
         ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/cfu_task.c
         ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/cfu_callback.c
-        "${REALTEK_SDK_ROOT}/subsys/dfu/dfu_common.c"
+        ${REALTEK_SDK_ROOT}/subsys/dfu/dfu_common.c
         ${OT_REALTEK_ROOT}/src/rtl87x2g/main_ns.c
     )
 

@@ -65,7 +65,11 @@ enum
 {
     kPlatformClock     = 32000000,
     kBaudRate          = 115200,
+#ifdef BUILD_NCP
+    kReceiveBufferSize = 4096,
+#else
     kReceiveBufferSize = 512,
+#endif
 };
 
 #if (ENABLE_CLI == 1 || BUILD_NCP == 1 || BUILD_RCP == 1 || ENABLE_PW_RPC == 1)
@@ -98,8 +102,11 @@ static void *cdc_out_handle = NULL;
 #if (FEATURE_SUPPORT_CFU && (USE_USB_CDC == USB_TYPE))
 T_CDC_PACKET_DEF cdc_packet;
 #endif
+#ifdef BUILD_NCP
+static uint8_t usb_speed_mode = USB_SPEED_HIGH;
+#else
 static uint8_t usb_speed_mode = USB_SPEED_FULL;
-
+#endif
 
 typedef enum
 {
@@ -350,13 +357,56 @@ void GetLineCondigCb(void)
     DBG_DIRECT("GetLineCondigCb");
 }
 
+#define USB_UART_TX_BU_SZ 1024
+char usb_uart_tx_buf[USB_UART_TX_BU_SZ] __ALIGNED(4);
+
 static volatile uint16_t sRemainLength = 0;
 static volatile uint16_t sTransmitLength = 0;
 
+#ifdef BUILD_NCP
+void CdcSendDataCb(void *handle, void *buf, uint32_t len, int status)
+{
+    uint16_t out_mtu_size = (usb_speed_mode == USB_SPEED_FULL) ? 64 : 512;
+    int ret;
+    sRemainLength -= (uint16_t)len;
+    sTransmitLength += (uint16_t)len;
+    if (sRemainLength > 0)
+    {
+        os_mutex_take(uart_tx_mutex, 0xffffffff);
+        if (sRemainLength > out_mtu_size)
+        {
+            mac_memcpy(usb_uart_tx_buf, &sTransmitBuffer[sTransmitLength], out_mtu_size);
+            do
+            {
+                ret = usb_cdc_driver_data_pipe_send(cdc_in_handle, usb_uart_tx_buf, out_mtu_size);
+            }
+            while (ret > 0);
+        }
+        else
+        {
+            mac_memcpy(usb_uart_tx_buf, &sTransmitBuffer[sTransmitLength], sRemainLength);
+            do
+            {
+                ret = usb_cdc_driver_data_pipe_send(cdc_in_handle, usb_uart_tx_buf, sRemainLength);
+            }
+            while (ret > 0);
+        }
+        os_mutex_give(uart_tx_mutex);
+    }
+    else
+    {
+        sTransmitDone = true;
+        sTransmitBuffer = NULL;
+        BEE_EventSend(UART_TX, 0);
+        otTaskletsSignalPending(NULL);
+    }
+}
+#else
 void CdcSendDataCb(void *handle, void *buf, uint32_t len, int status)
 {
     os_sem_give(uart_tx_sem);
 }
+#endif
 
 void CdcRecvDataCb(void *handle, void *buf, uint32_t len, int status)
 {
@@ -414,9 +464,10 @@ void CdcRecvDataCb(void *handle, void *buf, uint32_t len, int status)
 void app_usb_spd_cb(uint8_t speed)
 {
     DBG_DIRECT("[app_usb_spd_cb] speed = %d", speed);
-
+#ifdef BUILD_NCP
+#else
     usb_speed_mode = speed;
-
+#endif
     uint16_t out_mtu = 512;
 
     if (usb_speed_mode == USB_SPEED_FULL)
@@ -536,12 +587,52 @@ otError otPlatUartDisable(void)
     return OT_ERROR_NONE;
 }
 
-#define USB_UART_TX_BU_SZ 1024
-char usb_uart_tx_buf[USB_UART_TX_BU_SZ] __ALIGNED(4);
-
 void uart_send(const uint8_t *aBuf, uint16_t aBufLength)
 {
+}
+
+#ifdef BUILD_NCP
+otError otPlatUartSend(const uint8_t *aBuf, uint16_t aBufLength)
+{
     uint16_t out_mtu_size = (usb_speed_mode == USB_SPEED_FULL) ? 64 : 512;
+    int ret;
+    if (usb_uart_ready)
+    {
+        os_mutex_take(uart_tx_mutex, 0xffffffff);
+        sTransmitBuffer = aBuf;
+        sRemainLength = aBufLength;
+        sTransmitLength = 0;
+        if (sRemainLength > out_mtu_size)
+        {
+            mac_memcpy(usb_uart_tx_buf, &sTransmitBuffer[sTransmitLength], out_mtu_size);
+            do
+            {
+                ret = usb_cdc_driver_data_pipe_send(cdc_in_handle, usb_uart_tx_buf, out_mtu_size);
+            }
+            while (ret > 0);
+        }
+        else
+        {
+            mac_memcpy(usb_uart_tx_buf, &sTransmitBuffer[sTransmitLength], sRemainLength);
+            do
+            {
+                ret = usb_cdc_driver_data_pipe_send(cdc_in_handle, usb_uart_tx_buf, sRemainLength);
+            }
+            while (ret > 0);
+        }
+        os_mutex_give(uart_tx_mutex);
+    }
+    else
+    {
+        otLogInfoPlat("%s !usb_uart_ready", __func__);
+        return OT_ERROR_INVALID_STATE;
+    }
+}
+#else
+otError otPlatUartSend(const uint8_t *aBuf, uint16_t aBufLength)
+{
+    uint16_t out_mtu_size = (usb_speed_mode == USB_SPEED_FULL) ? 64 : 512;
+    int ret;
     if (usb_uart_ready)
     {
         os_mutex_take(uart_tx_mutex, 0xffffffff);
@@ -552,7 +643,11 @@ void uart_send(const uint8_t *aBuf, uint16_t aBufLength)
             if (sRemainLength > out_mtu_size)
             {
                 mac_memcpy(usb_uart_tx_buf, &aBuf[sTransmitLength], out_mtu_size);
-                usb_cdc_driver_data_pipe_send(cdc_in_handle, usb_uart_tx_buf, out_mtu_size);
+                do
+                {
+                    ret = usb_cdc_driver_data_pipe_send(cdc_in_handle, usb_uart_tx_buf, out_mtu_size);
+                }
+                while (ret > 0);
                 os_sem_take(uart_tx_sem, 0xffffffff);
                 sTransmitLength += out_mtu_size;
                 sRemainLength -= out_mtu_size;
@@ -560,24 +655,29 @@ void uart_send(const uint8_t *aBuf, uint16_t aBufLength)
             else
             {
                 mac_memcpy(usb_uart_tx_buf, &aBuf[sTransmitLength], sRemainLength);
-                usb_cdc_driver_data_pipe_send(cdc_in_handle, usb_uart_tx_buf, sRemainLength);
+                do
+                {
+                    ret = usb_cdc_driver_data_pipe_send(cdc_in_handle, usb_uart_tx_buf, sRemainLength);
+                }
+                while (ret > 0);
                 os_sem_take(uart_tx_sem, 0xffffffff);
                 sTransmitLength += sRemainLength;
                 sRemainLength = 0;
             }
         }
         os_mutex_give(uart_tx_mutex);
+        sTransmitDone = true;
+        BEE_EventSend(UART_TX, 0);
+        otTaskletsSignalPending(NULL);
+        return OT_ERROR_NONE;
+    }
+    else
+    {
+        otLogInfoPlat("%s !usb_uart_ready", __func__);
+        return OT_ERROR_INVALID_STATE;
     }
 }
-
-otError otPlatUartSend(const uint8_t *aBuf, uint16_t aBufLength)
-{
-    uart_send(aBuf, aBufLength);
-    sTransmitDone = true;
-    BEE_EventSend(UART_TX, 0);
-    otTaskletsSignalPending(NULL);
-    return OT_ERROR_NONE;
-}
+#endif
 
 #if (FEATURE_SUPPORT_CFU && (USE_USB_CDC == USB_TYPE))
 bool app_usb_send_dfu_data(uint8_t report_id, uint8_t *data, uint16_t len)

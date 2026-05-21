@@ -29,10 +29,6 @@
 
 set -euxo pipefail
 
-export OT_SRCDIR="$(pwd)"
-export OUT_FOLDER="${OT_SRCDIR}/${OT_CMAKE_BUILD_DIR:-build}"
-OT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET:-}
-
 # Apply git patch idempotently (no-op if already applied)
 # Usage: apply_patch <patch_file>
 apply_patch()
@@ -59,11 +55,15 @@ apply_patch()
     return 1
 }
 
+export OT_SRCDIR="$(pwd)"
+export OUT_FOLDER="${OT_SRCDIR}/${OT_CMAKE_BUILD_DIR:-build}"
+OT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET:-}
+
 #to add more by modify ld
 is_create_ld_gen()
 {
     local ldgentargets=("rtl8777g" "rtl8777g_s" "evb" "evb_dual" \
-    "rtl8777g_cert" "rtl8777g_test")
+    "rtl8777g_cert" "rtl8777g_test" "otbr" "rtl8777g_ncp")
 
     for ldgentarget in "${ldgentargets[@]}"; do
         if [ "${board_target}" == "${ldgentarget}" ]; then
@@ -74,7 +74,7 @@ is_create_ld_gen()
     return 1
 }
 
-#modify folder to src/rtl8777g
+#modify folder to vendor/rtl8777g
 is_rtl8777g_signal_target()
 {
     local is8777gsignaltargets=("rtl8777g" "rtl8777g_cert")
@@ -99,7 +99,7 @@ build()
     if [[ -n ${OT_CMAKE_NINJA_TARGET[*]} ]]; then
         ninja "${OT_CMAKE_NINJA_TARGET[@]}"
     else
-        ninja 
+        ninja
     fi
 }
 
@@ -107,7 +107,15 @@ pre_build()
 {
     # for rtl87x2g
     if is_create_ld_gen >/dev/null 2>&1; then
-       ${OT_SRCDIR}/script/pre_build ${BUILD_BANK} ${target} ${platform} "app.ld"
+       ${OT_SRCDIR}/Realtek/pre_build ${BUILD_BANK} ${target} ${platform} "app.ld"
+    fi
+    # for rtl8752h
+    if [ "${platform}" == "rtl8752h" ]; then
+        if [ "${OT_CMAKE_NINJA_TARGET}" == "ot-rcp" ]; then
+            ${OT_SRCDIR}/Realtek/pre_build "bank0" ${target} ${platform} "rcp.ld"
+        else
+            ${OT_SRCDIR}/Realtek/pre_build "bank0" ${target} ${platform} "app.ld"
+        fi
     fi
 }
 
@@ -115,8 +123,13 @@ post_build()
 {
     # for rtl87x2g
     if is_create_ld_gen >/dev/null 2>&1; then
-        ${OT_SRCDIR}/script/post_build ${BUILD_BANK} ${OT_CMAKE_NINJA_TARGET} ${platform}
-        rm -f ${OT_SRCDIR}/src/${platform}/${target}/*.gen
+        ${OT_SRCDIR}/Realtek/post_build ${BUILD_BANK} ${OT_CMAKE_NINJA_TARGET} ${platform}
+        rm -f ${OT_SRCDIR}/vendor/${platform}/${target}/*.gen
+    fi
+    # for rtl8752h
+    if [ "${platform}" == "rtl8752h" ]; then
+        ${OT_SRCDIR}/Realtek/post_build "bank0" ${OT_CMAKE_NINJA_TARGET} ${platform}
+        rm -f ${OT_SRCDIR}/vendor/${platform}/${target}/*.gen
     fi
 }
 
@@ -124,13 +137,76 @@ set_sdk_path()
 {
    case "${platform}" in
         rtl87x2g)
-            export REALTEK_SDK_PATH="${OT_SRCDIR}/third_party/Realtek/rtl87x2g_sdk"
+            export REALTEK_SDK_PATH="${OT_SRCDIR}/../../"
             ;;
         rtl8752h)
-            export REALTEK_SDK_PATH="${OT_SRCDIR}/third_party/Realtek/rtl87x2g_sdk"
+            export REALTEK_SDK_PATH="${OT_SRCDIR}/../.."
             ;;
         *)
    esac
+}
+
+
+rtl87x2g_platform()
+{
+    options+=("-DRT_PLATFORM=${platform}")
+    options+=("-DBUILD_BOARD_TARGET=${board_target}")
+    options+=("-DBUILD_TARGET=${target}")
+    case "${OT_CMAKE_NINJA_TARGET}" in
+        ot-cli-ftd | ot-cli-mtd)
+            cd ${OT_SRCDIR}/openthread && git reset --hard HEAD && git clean -f -d && git checkout thread-reference-20250612 && apply_patch ../openthread_csl.patch && cd ${OT_SRCDIR}
+            options+=("-DCMAKE_TOOLCHAIN_FILE=vendor/${platform}/arm-none-eabi.cmake")
+            options+=("-DENABLE_CLI=ON")
+            ;;
+        ot-ncp-ftd | ot-ncp-mtd)
+            # update to latest openthread commits
+            options+=("-DCMAKE_TOOLCHAIN_FILE=vendor/${platform}/arm-none-eabi.cmake")
+            options+=("-DENABLE_CLI=ON")
+            ;;
+        ot-rcp)
+			cd ${OT_SRCDIR}/openthread && git reset --hard HEAD && git clean -f -d && git checkout thread-reference-20250612 && cd ${OT_SRCDIR}
+            options+=("-DCMAKE_TOOLCHAIN_FILE=vendor/${platform}/arm-none-eabi.cmake")
+            options+=("-DENABLE_CLI=OFF -DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
+            options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/vendor/${platform}/example_vendor_hook.cpp")
+            ;;
+        *)
+            ;;
+    esac
+    options+=("-DOT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET}")
+}
+
+rtl8752h_platform()
+{
+    options+=("-DCMAKE_TOOLCHAIN_FILE=vendor/${platform}/arm-none-eabi.cmake")
+    options+=("-DRT_PLATFORM=${platform}")
+    #options+=("-DBUILD_BOARD_TARGET=${board_target}")
+    options+=("-DBUILD_TARGET=${target}")
+    options+=("-DRT_PATCH=ON")
+    case "${OT_CMAKE_NINJA_TARGET}" in
+        ot-cli-mtd)
+            cd ${OT_SRCDIR}/openthread && git reset --hard HEAD && git clean -f -d && git checkout thread-reference-20250612 && apply_patch ../openthread_csl.patch && cd ${OT_SRCDIR}
+            ;;
+        ot-rcp)
+            case "${board_target}" in
+                rtl8771htv)
+                    options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/vendor/${platform}/example_vendor_hook.cpp")
+                    cd ${OT_SRCDIR}/openthread && git reset --hard HEAD && git clean -f -d && git checkout thread-reference-20250612 && cd ${OT_SRCDIR}
+                    ;;
+                *)
+                    cd ${OT_SRCDIR}/openthread && git checkout 2aeb8b8 && cd ${OT_SRCDIR}
+                    ;;
+            esac
+            options+=("-DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
+            #case "${build_type}" in
+            #    dev)
+            #        tar zxvf ${OT_SRCDIR}/Realtek/v3.0.0.tar.gz -C ${OT_SRCDIR}/openthread/third_party/mbedtls/
+            #        ;;
+            #esac
+            ;;
+        *)
+            ;;
+    esac
+    options+=("-DOT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET}")
 }
 
 main()
@@ -155,79 +231,9 @@ main()
     options+=("-DCMAKE_BUILD_TYPE=Release")
     case "${platform}" in
         rtl87x2g)
-        options+=("-DRT_PLATFORM=${platform}")
-        options+=("-DBUILD_BOARD_TARGET=${board_target}")
-        options+=("-DBUILD_TARGET=${target}")
-        case "${OT_CMAKE_NINJA_TARGET}" in
-            ot-cli-ftd | ot-cli-mtd)
-                cd ${OT_SRCDIR}/openthread && \
-                    git checkout 2aeb8b8 && \
-                    apply_patch ../openthread_csl_2aeb8b8.patch && \
-                    cd ${OT_SRCDIR}
-                options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
-                options+=("-DENABLE_CLI=ON")
-                ;;
-            ot-ncp-ftd | ot-ncp-mtd)
-                #cd ${OT_SRCDIR}/openthread && git checkout main && git pull && cd ${OT_SRCDIR}
-                options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi-ncp.cmake")
-                options+=("-DENABLE_CLI=OFF")
-                options+=("-DOT_BORDER_ROUTER=ON"
-                          "-DOT_CSL_RECEIVER=ON"
-                          "-DOT_ECDSA=ON"
-                          "-DOT_RCP_RESTORATION_MAX_COUNT=2"
-                          "-DOT_RCP_TX_WAIT_TIME_SECS=5"
-                          "-DOT_SERVICE=ON"
-                          "-DOT_SLAAC=ON")
-                ;;
-            ot-rcp)
-                cd ${OT_SRCDIR}/openthread && git checkout 2aeb8b8 && cd ${OT_SRCDIR}
-                options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
-                options+=("-DENABLE_CLI=OFF -DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
-                options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/src/${platform}/example_vendor_hook.cpp")
-                ;;
-            *)
-                ;;
-        esac
-        options+=("-DOT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET}")
-        ;;
+            rtl87x2g_platform;;
         rtl8752h)
-        options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
-        options+=("-DRT_PLATFORM=${platform}")
-        #options+=("-DBUILD_BOARD_TARGET=${board_target}")
-        options+=("-DBUILD_TARGET=${target}")
-        options+=("-DRT_PATCH=ON")
-        case "${OT_CMAKE_NINJA_TARGET}" in
-            ot-cli-mtd)
-                cd ${OT_SRCDIR}/openthread && \
-                    git reset --hard HEAD && \
-                    git clean -f -d && \
-                    git checkout 2aeb8b8 && \
-                    apply_patch ../src/bee3plus/thread-reference-20230706.patch && \
-                    apply_patch ../openthread_csl_2aeb8b8.patch && \
-                    cd ${OT_SRCDIR}
-                ;;
-            ot-rcp)
-                case "${board_target}" in
-                    rtl8771htv)
-                        options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/src/${platform}/example_vendor_hook.cpp")
-                        cd ${OT_SRCDIR}/openthread && \
-                            git reset --hard HEAD && \
-                            git clean -f -d && \
-                            git checkout 2aeb8b8 && \
-                            apply_patch ../src/bee3plus/thread-reference-20230706.patch && \
-                            cd ${OT_SRCDIR}
-                        ;;
-                    *)
-                        cd ${OT_SRCDIR}/openthread && git checkout 2aeb8b8 && cd ${OT_SRCDIR}
-                        ;;
-                esac
-                options+=("-DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
-                ;;
-            *)
-                ;;
-        esac
-        options+=("-DOT_CMAKE_NINJA_TARGET=${OT_CMAKE_NINJA_TARGET}")
-        ;;
+            rtl8752h_platform;;
     esac
 
     options+=("$@")
@@ -236,6 +242,17 @@ main()
     build "${options[@]}"
     post_build
 
+    #if [ "${OT_CMAKE_NINJA_TARGET}" == "ot-rcp" ] && [ ${board_target} == "rtl8752h" ];then
+    #    grep "__librtl8752h_internal_length" ${OT_SRCDIR}/build/ot-rcp.map
+    #    grep "__librtl8752h_peripheral_length" ${OT_SRCDIR}/build/ot-rcp.map
+    #    grep "__libopenthread_rtl8752h_length" ${OT_SRCDIR}/build/ot-rcp.map
+    #    grep "__libopenthread_radio_length" ${OT_SRCDIR}/build/ot-rcp.map
+    #    grep "__libopenthread_rcp_length" ${OT_SRCDIR}/build/ot-rcp.map
+    #    grep "__libopenthread_spinel_rcp_length" ${OT_SRCDIR}/build/ot-rcp.map
+    #    grep "__libopenthread_hdlc_length" ${OT_SRCDIR}/build/ot-rcp.map
+    #    grep "__rw_length" ${OT_SRCDIR}/build/ot-rcp.map
+    #    grep "__bss_length__" ${OT_SRCDIR}/build/ot-rcp.map
+    #fi
 }
 
 main "$@"

@@ -31,13 +31,9 @@ if(${RT_PLATFORM} STREQUAL "rtl8852d")
 endif()
 
 if(${RT_PLATFORM} STREQUAL "rtl87x2g")
-    if(DEFINED ENV{REALTEK_SDK_PATH})
-        set(REALTEK_SDK_ROOT $ENV{REALTEK_SDK_PATH})
-    else()
-        set(REALTEK_SDK_ROOT
-            ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk
-        )
-    endif()
+    set(REALTEK_SDK_ROOT
+        ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/..
+    )
     set(REALTEK_SDK_INCPATH
         ${REALTEK_SDK_ROOT}/subsys/freertos
         ${REALTEK_SDK_ROOT}/subsys/osif/inc
@@ -61,6 +57,21 @@ if(${RT_PLATFORM} STREQUAL "rtl87x2g")
         ${REALTEK_SDK_ROOT}/bsp/sdk_lib/inc
         ${REALTEK_SDK_ROOT}/bsp/sdk_lib/inc_int
         ${REALTEK_SDK_ROOT}/bsp/power
-        ${REALTEK_SDK_ROOT}/subsys/mac_driver/portable/rtl87x2g
     )
 endif()
+
+if(${RT_PLATFORM} STREQUAL "rtl8752h")
+    set(REALTEK_SDK_ROOT
+        ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/../..
+    )
+    set(REALTEK_SDK_INCPATH
+        ${REALTEK_SDK_ROOT}/sdk/inc/peripheral
+        ${REALTEK_SDK_ROOT}/sdk/inc/platform
+        ${REALTEK_SDK_ROOT}/sdk/inc/os
+        ${REALTEK_SDK_ROOT}/sdk/inc/os/freertos
+        ${REALTEK_SDK_ROOT}/sdk/inc/app
+        ${REALTEK_SDK_ROOT}/sdk/inc/bluetooth/gap
+        ${REALTEK_SDK_ROOT}/sdk/inc/bluetooth/profile
+    )
+endif()
+

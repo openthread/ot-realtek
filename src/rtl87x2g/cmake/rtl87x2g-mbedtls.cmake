@@ -26,17 +26,18 @@
 #  POSSIBILITY OF SUCH DAMAGE.
 #
 
-if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR 
+if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
    ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd" OR
    ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-ftd" OR
    ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-cli-mtd" OR
-   ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp")
+   ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp" OR
+   ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd")
 
     message("CMAKE_CURRENT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}")
 
-    set(MBEDTLS_REPO ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/subsys/mbedtls/repo)
-    set(MBEDTLS_PORT ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/subsys/mbedtls/port)
-    set(MBEDTLS_COMMON_CONFIG ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/subsys/mbedtls/mbedtls-config.h)
+    set(MBEDTLS_REPO ${CMAKE_CURRENT_SOURCE_DIR}/../../../mbedtls/repo)
+    set(MBEDTLS_PORT ${CMAKE_CURRENT_SOURCE_DIR}/../../../mbedtls/port)
+    set(MBEDTLS_COMMON_CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/../../../mbedtls/mbedtls-config.h)
 
     add_subdirectory(
         ${MBEDTLS_REPO}
@@ -55,7 +56,8 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
             )
     target_compile_definitions(mbedtls
         PUBLIC
-            "MBEDTLS_CONFIG_FILE=\"${MBEDTLS_COMMON_CONFIG}\""
+            MBEDTLS_CONFIG_FILE="${MBEDTLS_COMMON_CONFIG}"
+            "MBEDTLS_ALLOW_PRIVATE_ACCESS="
         PRIVATE
             $<TARGET_PROPERTY:ot-config,INTERFACE_COMPILE_DEFINITIONS>
     )
@@ -72,6 +74,7 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
     target_compile_definitions(mbedx509
         PUBLIC
             "MBEDTLS_CONFIG_FILE=\"${MBEDTLS_COMMON_CONFIG}\""
+            "MBEDTLS_ALLOW_PRIVATE_ACCESS="
         PRIVATE
             $<TARGET_PROPERTY:ot-config,INTERFACE_COMPILE_DEFINITIONS>
 
@@ -88,27 +91,23 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
     target_compile_definitions(mbedcrypto
         PUBLIC
             "MBEDTLS_CONFIG_FILE=\"${MBEDTLS_COMMON_CONFIG}\""
+            "MBEDTLS_ALLOW_PRIVATE_ACCESS="
         PRIVATE
             $<TARGET_PROPERTY:ot-config,INTERFACE_COMPILE_DEFINITIONS>
     )
-    
-    target_include_directories(mbedcrypto BEFORE
-        PRIVATE
-            ${MBEDTLS_PORT}/inc
-    )
-    
     target_include_directories(mbedcrypto
         PUBLIC
             $<BUILD_INTERFACE:${MBEDTLS_REPO}/include>
 
         PRIVATE
+            ${MBEDTLS_PORT}/inc
             ${OT_PUBLIC_INCLUDES}
             ${MBEDTLS_REPO}/library
             $<TARGET_PROPERTY:ot-config,INTERFACE_INCLUDE_DIRECTORIES>
     )
 
     target_compile_options(mbedcrypto PRIVATE 
-        -include "${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/subsys/crypto/mbedtls/mbedtls_lib/src/mbedtls_hw_interface.h"
+        -include ${REALTEK_SDK_ROOT}/include/rtl87x2g/nsc/crypto_engine_nsc.h
     )
 
     target_sources(mbedcrypto PRIVATE 
@@ -120,23 +119,19 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
                     ${MBEDTLS_PORT}/src/crypto_accel_dispatch.c
                     ${MBEDTLS_PORT}/src/crypto_hw_locks.c
                     )
-    
-    # Ensure threading_alt.c uses the SDK's threading_alt.h with correct structure definition
-    set_source_files_properties(${MBEDTLS_PORT}/src/threading_alt.c
-        PROPERTIES
-        INCLUDE_DIRECTORIES "${MBEDTLS_PORT}/inc;${MBEDTLS_REPO}/include"
-    )
-    
-    set(CHIP_CFLAGS "-save-temps=obj"
-                    "-DMBEDTLS_USER_CONFIG_FILE=<rtl87x2g-mbedtls-config.h>"
-                    "-DMBEDTLS_CONFIG_FILE=<mbedtls-config.h>"
-                    PARENT_SCOPE)                
+
+    set(CHIP_CFLAGS "-save-temps=obj" 
+                    "-DMBEDTLS_USER_CONFIG_FILE=\\\"rtl87x2g-mbedtls-config.h\\\"" 
+                    "-DMBEDTLS_CONFIG_FILE=\\\"mbedtls-config.h\\\""
+                    PARENT_SCOPE)
+
 else()
 
     if (NOT OT_EXTERNAL_MBEDTLS)
-        if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-mtd")
+        if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-ncp-mtd")
             target_compile_definitions(ot-config INTERFACE
                     MBEDTLS_USER_CONFIG_FILE="ncp-mbedtls-config.h"
+                    MBEDTLS_ALLOW_PRIVATE_ACCESS=
             )
         else()
             target_compile_definitions(ot-config INTERFACE
