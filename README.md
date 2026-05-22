@@ -16,10 +16,19 @@ $ git submodule update --init --recursive
 
 In a Bash terminal, follow these instructions to build the RTL8777G examples.
 
+**CLI (Full Thread Device):**
 ```bash
 $ cd <path-to-ot-realtek>
 $ OT_CMAKE_NINJA_TARGET="ot-cli-ftd" ./script/build rtl87x2g sdk rtl8777g
 ```
+
+**RCP (Radio Co-Processor) for RTL8771GUV dongle:**
+```bash
+$ cd <path-to-ot-realtek>
+$ OT_CMAKE_NINJA_TARGET="ot-rcp" ./script/build rtl87x2g sdk rtl8771guv
+```
+
+The RCP image built for `rtl8771guv` is also compatible with the RTL8777G EVB.
 
 ## Flash Binaries
 
