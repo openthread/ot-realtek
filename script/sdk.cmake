@@ -32,7 +32,7 @@ endif()
 
 if(${RT_PLATFORM} STREQUAL "rtl87x2g")
     set(REALTEK_SDK_ROOT
-        ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/..
+        ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk
     )
     set(REALTEK_SDK_INCPATH
         ${REALTEK_SDK_ROOT}/subsys/freertos
@@ -62,7 +62,7 @@ endif()
 
 if(${RT_PLATFORM} STREQUAL "rtl8752h")
     set(REALTEK_SDK_ROOT
-        ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/../..
+        ${OT_REALTEK_ROOT}/third_party/Realtek
     )
     set(REALTEK_SDK_INCPATH
         ${REALTEK_SDK_ROOT}/sdk/inc/peripheral

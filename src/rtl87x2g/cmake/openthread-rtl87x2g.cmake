@@ -74,7 +74,7 @@ target_link_libraries(openthread-rtl87x2g
     PRIVATE
         ${OT_MBEDTLS}
         ot-config
-        rtl87x2g-internal
+        "${REALTEK_SDK_ROOT}/lib/rtl87x2g/librtl87x2g-internal.a"
         rtl87x2g-peripheral
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_lib/lib/rtl87x2g/gcc/libusb.a"
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_hal/lib/rtl87x2g/gcc/libusb_hal.a"
