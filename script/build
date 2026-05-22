@@ -107,14 +107,14 @@ pre_build()
 {
     # for rtl87x2g
     if is_create_ld_gen >/dev/null 2>&1; then
-       ${OT_SRCDIR}/Realtek/pre_build ${BUILD_BANK} ${target} ${platform} "app.ld"
+       ${OT_SRCDIR}/script/pre_build ${BUILD_BANK} ${target} ${platform} "app.ld"
     fi
     # for rtl8752h
     if [ "${platform}" == "rtl8752h" ]; then
         if [ "${OT_CMAKE_NINJA_TARGET}" == "ot-rcp" ]; then
-            ${OT_SRCDIR}/Realtek/pre_build "bank0" ${target} ${platform} "rcp.ld"
+            ${OT_SRCDIR}/script/pre_build "bank0" ${target} ${platform} "rcp.ld"
         else
-            ${OT_SRCDIR}/Realtek/pre_build "bank0" ${target} ${platform} "app.ld"
+            ${OT_SRCDIR}/script/pre_build "bank0" ${target} ${platform} "app.ld"
         fi
     fi
 }
@@ -123,13 +123,13 @@ post_build()
 {
     # for rtl87x2g
     if is_create_ld_gen >/dev/null 2>&1; then
-        ${OT_SRCDIR}/Realtek/post_build ${BUILD_BANK} ${OT_CMAKE_NINJA_TARGET} ${platform}
-        rm -f ${OT_SRCDIR}/vendor/${platform}/${target}/*.gen
+        ${OT_SRCDIR}/script/post_build ${BUILD_BANK} ${OT_CMAKE_NINJA_TARGET} ${platform}
+        rm -f ${OT_SRCDIR}/src/${platform}/${target}/*.gen
     fi
     # for rtl8752h
     if [ "${platform}" == "rtl8752h" ]; then
-        ${OT_SRCDIR}/Realtek/post_build "bank0" ${OT_CMAKE_NINJA_TARGET} ${platform}
-        rm -f ${OT_SRCDIR}/vendor/${platform}/${target}/*.gen
+        ${OT_SRCDIR}/script/post_build "bank0" ${OT_CMAKE_NINJA_TARGET} ${platform}
+        rm -f ${OT_SRCDIR}/src/${platform}/${target}/*.gen
     fi
 }
 
@@ -137,10 +137,10 @@ set_sdk_path()
 {
    case "${platform}" in
         rtl87x2g)
-            export REALTEK_SDK_PATH="${OT_SRCDIR}/../../"
+            export REALTEK_SDK_PATH="${OT_SRCDIR}/third_party/Realtek/rtl87x2g_sdk"
             ;;
         rtl8752h)
-            export REALTEK_SDK_PATH="${OT_SRCDIR}/../.."
+            export REALTEK_SDK_PATH="${OT_SRCDIR}/third_party/Realtek/rtl87x2g_sdk"
             ;;
         *)
    esac
@@ -155,19 +155,19 @@ rtl87x2g_platform()
     case "${OT_CMAKE_NINJA_TARGET}" in
         ot-cli-ftd | ot-cli-mtd)
             cd ${OT_SRCDIR}/openthread && git reset --hard HEAD && git clean -f -d && git checkout thread-reference-20250612 && apply_patch ../openthread_csl.patch && cd ${OT_SRCDIR}
-            options+=("-DCMAKE_TOOLCHAIN_FILE=vendor/${platform}/arm-none-eabi.cmake")
+            options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
             options+=("-DENABLE_CLI=ON")
             ;;
         ot-ncp-ftd | ot-ncp-mtd)
             # update to latest openthread commits
-            options+=("-DCMAKE_TOOLCHAIN_FILE=vendor/${platform}/arm-none-eabi.cmake")
+            options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
             options+=("-DENABLE_CLI=ON")
             ;;
         ot-rcp)
 			cd ${OT_SRCDIR}/openthread && git reset --hard HEAD && git clean -f -d && git checkout thread-reference-20250612 && cd ${OT_SRCDIR}
-            options+=("-DCMAKE_TOOLCHAIN_FILE=vendor/${platform}/arm-none-eabi.cmake")
+            options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
             options+=("-DENABLE_CLI=OFF -DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
-            options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/vendor/${platform}/example_vendor_hook.cpp")
+            options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/src/${platform}/example_vendor_hook.cpp")
             ;;
         *)
             ;;
@@ -177,7 +177,7 @@ rtl87x2g_platform()
 
 rtl8752h_platform()
 {
-    options+=("-DCMAKE_TOOLCHAIN_FILE=vendor/${platform}/arm-none-eabi.cmake")
+    options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
     options+=("-DRT_PLATFORM=${platform}")
     #options+=("-DBUILD_BOARD_TARGET=${board_target}")
     options+=("-DBUILD_TARGET=${target}")
@@ -189,7 +189,7 @@ rtl8752h_platform()
         ot-rcp)
             case "${board_target}" in
                 rtl8771htv)
-                    options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/vendor/${platform}/example_vendor_hook.cpp")
+                    options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/src/${platform}/example_vendor_hook.cpp")
                     cd ${OT_SRCDIR}/openthread && git reset --hard HEAD && git clean -f -d && git checkout thread-reference-20250612 && cd ${OT_SRCDIR}
                     ;;
                 *)

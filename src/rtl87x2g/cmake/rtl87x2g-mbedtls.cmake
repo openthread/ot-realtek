@@ -35,9 +35,9 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR
 
     message("CMAKE_CURRENT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}")
 
-    set(MBEDTLS_REPO ${CMAKE_CURRENT_SOURCE_DIR}/../../../mbedtls/repo)
-    set(MBEDTLS_PORT ${CMAKE_CURRENT_SOURCE_DIR}/../../../mbedtls/port)
-    set(MBEDTLS_COMMON_CONFIG ${CMAKE_CURRENT_SOURCE_DIR}/../../../mbedtls/mbedtls-config.h)
+    set(MBEDTLS_REPO ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/subsys/mbedtls/repo)
+    set(MBEDTLS_PORT ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/subsys/mbedtls/port)
+    set(MBEDTLS_COMMON_CONFIG ${OT_REALTEK_ROOT}/third_party/Realtek/rtl87x2g_sdk/subsys/mbedtls/mbedtls-config.h)
 
     add_subdirectory(
         ${MBEDTLS_REPO}
