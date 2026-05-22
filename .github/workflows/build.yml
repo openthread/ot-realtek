@@ -63,7 +63,11 @@ jobs:
         sudo apt-get --no-install-recommends install -y build-essential lib32z1 ninja-build
         wget --tries 4 --no-check-certificate --quiet ${{ matrix.gcc_download_url }} -O gcc-arm
         tar xf gcc-arm
-    - name: Build
+    - name: Build CLI
       run: |
         export PATH=/tmp/${{ matrix.gcc_extract_dir }}/bin:$PATH
         OT_CMAKE_NINJA_TARGET="ot-cli-ftd" ./script/build rtl87x2g sdk rtl8777g
+    - name: Build RCP
+      run: |
+        export PATH=/tmp/${{ matrix.gcc_extract_dir }}/bin:$PATH
+        OT_CMAKE_NINJA_TARGET="ot-rcp" ./script/build rtl87x2g sdk rtl8771guv
