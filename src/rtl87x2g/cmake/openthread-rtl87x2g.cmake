@@ -70,11 +70,17 @@ target_link_directories(openthread-rtl87x2g
         ${REALTEK_SDK_ROOT}/subsys/lwip/for_matter/lib
 )
 
+if(EXISTS "${REALTEK_SDK_ROOT}/lib/rtl87x2g/${BUILD_TARGET}/librtl87x2g-internal.a")
+    set(RTL87X2G_INTERNAL_LIB "${REALTEK_SDK_ROOT}/lib/rtl87x2g/${BUILD_TARGET}/librtl87x2g-internal.a")
+else()
+    set(RTL87X2G_INTERNAL_LIB "${REALTEK_SDK_ROOT}/lib/rtl87x2g/librtl87x2g-internal.a")
+endif()
+
 target_link_libraries(openthread-rtl87x2g
     PRIVATE
         ${OT_MBEDTLS}
         ot-config
-        "${REALTEK_SDK_ROOT}/lib/rtl87x2g/librtl87x2g-internal.a"
+        "${RTL87X2G_INTERNAL_LIB}"
         rtl87x2g-peripheral
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_lib/lib/rtl87x2g/gcc/libusb.a"
         "${REALTEK_SDK_ROOT}/subsys/usb/usb_hal/lib/rtl87x2g/gcc/libusb_hal.a"

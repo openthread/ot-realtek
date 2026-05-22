@@ -34,7 +34,11 @@
 #ifndef OPENTHREAD_CORE_RTL8771GTV_RCP_CONFIG_H_
 #define OPENTHREAD_CORE_RTL8771GTV_RCP_CONFIG_H_
 
-#define FEATURE_SUPPORT_RTK_SIGN 1
-#define FEATURE_SUPPORT_CFU 1
+/* FEATURE_SUPPORT_RTK_SIGN requires internal rtk_sign.h - not available in the
+ * public rtl87x2g_sdk submodule, so disable it for public builds. */
+#define FEATURE_SUPPORT_RTK_SIGN 0
+/* CFU (Component Firmware Update) requires internal SDK headers not available
+ * in the public rtl87x2g_sdk submodule, so disable it for public builds. */
+#define FEATURE_SUPPORT_CFU 0
 
 #endif // OPENTHREAD_CORE_RTL8771GTV_RCP_CONFIG_H_
