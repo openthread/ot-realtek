@@ -352,9 +352,9 @@ endif()
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp" OR matter_enable_cfu)
 
     if(NOT matter_enable_cfu)
-        if(${BUILD_TYPE} STREQUAL "dev")
+        if(${BUILD_TYPE} STREQUAL "dev" AND EXISTS "${OT_REALTEK_ROOT}/src/rtl87x2g/internal/rtk_sign/rtk_sign.c")
             target_compile_definitions(rtl87x2g-internal PUBLIC "BUILD_RCP=1")
-        
+
             add_library(rtk_sign
                 STATIC
                 ./internal/rtk_sign/rtk_sign.c
@@ -379,7 +379,7 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp" OR matter_enable_cfu)
                 POST_BUILD
                 COMMAND cp -f ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/librtk_sign.a ${OT_REALTEK_ROOT}/lib/rtl87x2g/
             )
-        else()
+        elseif(EXISTS "${OT_REALTEK_ROOT}/lib/rtl87x2g/librtk_sign.a")
             target_link_libraries(openthread-rtl87x2g
                 PRIVATE
                     ${OT_REALTEK_ROOT}/lib/rtl87x2g/librtk_sign.a
@@ -388,42 +388,48 @@ if(${OT_CMAKE_NINJA_TARGET} STREQUAL "ot-rcp" OR matter_enable_cfu)
         endif()
     endif()
 
-    target_include_directories(openthread-rtl87x2g
-        PRIVATE
-            ${REALTEK_SDK_ROOT}/subsys/cfu
-            ${REALTEK_SDK_ROOT}/subsys/dfu
-            ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu
-            ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/config_param
-    )
+    if(EXISTS "${REALTEK_SDK_ROOT}/subsys/cfu/cfu.c")
+        target_include_directories(openthread-rtl87x2g
+            PRIVATE
+                ${REALTEK_SDK_ROOT}/subsys/cfu
+                ${REALTEK_SDK_ROOT}/subsys/dfu
+                ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu
+                ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/config_param
+        )
+
+        target_sources(openthread-rtl87x2g
+            PRIVATE
+            ${REALTEK_SDK_ROOT}/subsys/cfu/cfu.c
+            ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/cfu_application.c
+            ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/cfu_task.c
+            ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/cfu_callback.c
+            ${REALTEK_SDK_ROOT}/subsys/dfu/dfu_common.c
+        )
+
+        if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd")
+            target_sources(openthread-rtl87x2g
+                PRIVATE
+                ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/usb_cfu_handle.c
+            )
+        elseif(${BUILD_BOARD_TARGET} STREQUAL "rtl8771guv" OR ${BUILD_BOARD_TARGET} STREQUAL "rtl8777g")
+            target_sources(openthread-rtl87x2g
+                PRIVATE
+                ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/usb_cfu_handle.c
+            )
+        elseif(${BUILD_BOARD_TARGET} STREQUAL "rtl8771gtv")
+            target_sources(openthread-rtl87x2g
+                PRIVATE
+                ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/uart_cfu_handle.c
+                ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/loop_queue.c
+                ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/uart_transport.c
+            )
+        endif()
+    endif()
 
     target_sources(openthread-rtl87x2g
         PRIVATE
-        ${REALTEK_SDK_ROOT}/subsys/cfu/cfu.c
-        ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/cfu_application.c
-        ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/cfu_task.c
-        ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/cfu_callback.c
-        ${REALTEK_SDK_ROOT}/subsys/dfu/dfu_common.c
         ${OT_REALTEK_ROOT}/src/rtl87x2g/main_ns.c
     )
-
-    if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd")
-        target_sources(openthread-rtl87x2g
-            PRIVATE
-            ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/usb_cfu_handle.c
-        )
-    elseif(${BUILD_BOARD_TARGET} STREQUAL "rtl8771guv" OR ${BUILD_BOARD_TARGET} STREQUAL "rtl8777g")
-        target_sources(openthread-rtl87x2g
-            PRIVATE
-            ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/usb_cfu_handle.c
-        )
-    elseif(${BUILD_BOARD_TARGET} STREQUAL "rtl8771gtv")
-        target_sources(openthread-rtl87x2g
-            PRIVATE
-            ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/uart_cfu_handle.c
-            ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/loop_queue.c
-            ${OT_REALTEK_ROOT}/src/rtl87x2g/internal/cfu/uart_transport.c
-        )
-    endif()
 
     target_compile_definitions(openthread-rtl87x2g
         PRIVATE
