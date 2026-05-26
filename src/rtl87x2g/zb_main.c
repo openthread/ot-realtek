@@ -445,7 +445,6 @@ APP_FLASH_TEXT_SECTION void __wrap__free_r(struct _reent *ptr, void *addr)
 
 APP_FLASH_TEXT_SECTION void *__wrap__realloc_r(struct _reent *ptr, void *mem, size_t newsize)
 {
-    /* realloc(ptr, 0) is equivalent to free(ptr) */
     if (!newsize)
     {
         if (mem)
@@ -455,23 +454,25 @@ APP_FLASH_TEXT_SECTION void *__wrap__realloc_r(struct _reent *ptr, void *mem, si
         return NULL;
     }
 
-    /* realloc(NULL, size) is equivalent to malloc(size) */
     if (!mem)
     {
         return os_mem_alloc(RAM_TYPE_DATA_ON, newsize);
     }
 
-    /*
-     * For mem != NULL && newsize != 0:
-     * Cannot safely resize existing allocation without knowing original size.
-     * Return NULL to indicate failure rather than risk memory corruption.
-     *
-     * If this causes issues, the caller should either:
-     * 1. Track allocation sizes internally (like mbedtls resize_buffer does)
-     * 2. Use explicit alloc+copy+free with known sizes
-     * 3. Avoid realloc and use fixed-size allocations
-     */
-    return NULL;
+    /* Resize: read old user-data size from FreeRTOS BlockLink_t header.
+     * BlockLink_t = { void *pxNext (4B); uint32_t xBlockSize:28|xRamType:3|xAllocBit:1 (4B) }
+     * xBlockSize includes the 8-byte header itself. */
+    uint32_t hdr_word = ((const uint32_t *)mem)[-1];
+    size_t old_blk  = (size_t)(hdr_word & 0x0FFFFFFFu);
+    size_t old_data = old_blk > 8u ? old_blk - 8u : 0u;
+
+    void *p = os_mem_alloc(RAM_TYPE_DATA_ON, newsize);
+    if (p)
+    {
+        __wrap_memcpy(p, mem, old_data < newsize ? old_data : newsize);
+        os_mem_free(mem);
+    }
+    return p;
 }
 
 APP_FLASH_TEXT_SECTION void *__wrap__calloc_r(struct _reent *ptr, size_t size, size_t len)
