@@ -71,8 +71,7 @@ SECTIONS
         __enter_iram_ns_rw_start__ = .;
         * (.app.ram.text)
         * (.app.ram.data)
-        *libbee4-patch.a:*.obj (.text* .rodata*)
-        *libopenthread-bee4.a:*.obj (.text* .rodata*)
+        *libopenthread-rtl87x2g.a:*.obj (.text* .rodata*)
         *libopenthread-hdlc.a:*.obj (.text* .rodata*)
         *libopenthread-spinel-rcp.a:*.obj (.text* .rodata*)
         *libopenthread-radio.a:*.obj (.text* .rodata*)

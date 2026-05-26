@@ -80,6 +80,7 @@
 
 #define RSSI_SETTLE_TIME_US   40           ///< RSSI settle time in microseconds.
 #define SAFE_DELTA            1000         ///< A safe value for the `dt` parameter of delayed operations.
+#define MIN_SLEEP_US          10000        ///< Minimum sleep duration in microseconds; shorter intervals stay awake.
 
 #if defined(DLPS_EN) && (DLPS_EN == 1)
 #define CSL_UNCERT            74           ///< The Uncertainty of the scheduling CSL of transmission by the parent, in ±10 us units.
@@ -1605,7 +1606,7 @@ void BEE_SleepProcess(otInstance *aInstance, uint8_t pan_idx)
         diff = tmp_ms - now;
     }
 
-    if (diff < 10000)
+    if (diff < MIN_SLEEP_US)
     {
         os_unlock(s);
         goto stay_awake;

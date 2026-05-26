@@ -133,14 +133,14 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
         break;
 
     case SPINEL_PROP_VENDOR_RTK_VID_PID:
-        sprintf(str, "VID=%X & PID=%X", (unsigned int)vid, (unsigned int)pid);
+        snprintf(str, sizeof(str), "VID=%X & PID=%X", (unsigned int)vid, (unsigned int)pid);
         error = mEncoder.WriteUtf8((const char *)str);
         break;
 
     case SPINEL_PROP_VENDOR_RTK_VERSION:
         image_id = IMG_MCUAPP;
         get_ota_bank_image_version(true, image_id, &current_image_ver);
-        sprintf(str, "app current_ver %u.%u.%u.%u",
+        snprintf(str, sizeof(str), "app current_ver %u.%u.%u.%u",
                 (unsigned int)current_image_ver.ver_info.img_sub_version._version_major,
                 (unsigned int)current_image_ver.ver_info.img_sub_version._version_minor,
                 (unsigned int)current_image_ver.ver_info.img_sub_version._version_revision,
@@ -154,7 +154,7 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
         if ((0 != active_bank_image_size) && (0xffffffff != active_bank_image_size))
         {
             get_ota_bank_image_version(true, image_id, &current_image_ver);
-            sprintf(str, "app data1 current_ver %u.%u.%u.%u",
+            snprintf(str, sizeof(str), "app data1 current_ver %u.%u.%u.%u",
                     (unsigned int)current_image_ver.ver_info.img_sub_version._version_major,
                     (unsigned int)current_image_ver.ver_info.img_sub_version._version_minor,
                     (unsigned int)current_image_ver.ver_info.img_sub_version._version_revision,
@@ -163,7 +163,7 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
         }
         else
         {
-            sprintf(str, "no app data1");
+            snprintf(str, sizeof(str), "no app data1");
             error = mEncoder.WriteUtf8((const char *)str);
         }
         break;
