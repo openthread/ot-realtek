@@ -621,6 +621,7 @@ otError otPlatUartSend(const uint8_t *aBuf, uint16_t aBufLength)
             while (ret > 0);
         }
         os_mutex_give(uart_tx_mutex);
+        return OT_ERROR_NONE;
     }
     else
     {

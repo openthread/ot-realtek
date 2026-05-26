@@ -166,7 +166,9 @@ rtl87x2g_platform()
         ot-rcp)
 			cd ${OT_SRCDIR}/openthread && git reset --hard HEAD && git clean -f -d && git checkout thread-reference-20250612 && cd ${OT_SRCDIR}
             options+=("-DCMAKE_TOOLCHAIN_FILE=src/${platform}/arm-none-eabi.cmake")
-            options+=("-DENABLE_CLI=OFF -DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
+            options+=("-DENABLE_CLI=OFF")
+            options+=("-DOT_DNSSD_SERVER=ON")
+            options+=("-DOT_SRP_SERVER=ON")
             options+=("-DOT_NCP_VENDOR_HOOK_SOURCE=$PWD/src/${platform}/example_vendor_hook.cpp")
             ;;
         *)
@@ -196,7 +198,8 @@ rtl8752h_platform()
                     cd ${OT_SRCDIR}/openthread && git checkout 2aeb8b8 && cd ${OT_SRCDIR}
                     ;;
             esac
-            options+=("-DOT_DNSSD_SERVER=ON -DOT_SRP_SERVER=ON")
+            options+=("-DOT_DNSSD_SERVER=ON")
+            options+=("-DOT_SRP_SERVER=ON")
             #case "${build_type}" in
             #    dev)
             #        tar zxvf ${OT_SRCDIR}/Realtek/v3.0.0.tar.gz -C ${OT_SRCDIR}/openthread/third_party/mbedtls/
