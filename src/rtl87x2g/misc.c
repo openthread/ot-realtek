@@ -38,7 +38,6 @@ void __wrap_otInstanceResetRadioStack(otInstance *aInstance)
 {
 #ifdef BUILD_USB
     uint8_t pan_idx = mpan_GetCurrentPANIdx();
-    OT_UNUSED_VARIABLE(aInstance);
     if (pan_idx == 0)
     {
         gPlatformPseudoResetLevel++;
@@ -47,7 +46,7 @@ void __wrap_otInstanceResetRadioStack(otInstance *aInstance)
     {
         gPlatformPseudoResetLevel_zb++;
     }
-    otTaskletsSignalPending(NULL);
+    otTaskletsSignalPending(aInstance);
 #else
     OT_UNUSED_VARIABLE(aInstance);
     WDG_SystemReset(RESET_ALL, SW_RESET_APP_END);
@@ -56,7 +55,6 @@ void __wrap_otInstanceResetRadioStack(otInstance *aInstance)
 
 void otPlatReset(otInstance *aInstance)
 {
-    OT_UNUSED_VARIABLE(aInstance);
 #ifdef BUILD_USB
     otLogInfoPlat("%s", __func__);
     uint8_t pan_idx = mpan_GetCurrentPANIdx();
@@ -68,8 +66,9 @@ void otPlatReset(otInstance *aInstance)
     {
         gPlatformPseudoResetLevel_zb++;
     }
-    otTaskletsSignalPending(NULL);
+    otTaskletsSignalPending(aInstance);
 #else
+    OT_UNUSED_VARIABLE(aInstance);
     WDG_SystemReset(RESET_ALL, SW_RESET_APP_END);
 #endif
 }

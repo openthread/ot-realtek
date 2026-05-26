@@ -372,26 +372,9 @@ void CdcSendDataCb(void *handle, void *buf, uint32_t len, int status)
     sTransmitLength += (uint16_t)len;
     if (sRemainLength > 0)
     {
-        os_mutex_take(uart_tx_mutex, 0xffffffff);
-        if (sRemainLength > out_mtu_size)
-        {
-            mac_memcpy(usb_uart_tx_buf, &sTransmitBuffer[sTransmitLength], out_mtu_size);
-            do
-            {
-                ret = usb_cdc_driver_data_pipe_send(cdc_in_handle, usb_uart_tx_buf, out_mtu_size);
-            }
-            while (ret > 0);
-        }
-        else
-        {
-            mac_memcpy(usb_uart_tx_buf, &sTransmitBuffer[sTransmitLength], sRemainLength);
-            do
-            {
-                ret = usb_cdc_driver_data_pipe_send(cdc_in_handle, usb_uart_tx_buf, sRemainLength);
-            }
-            while (ret > 0);
-        }
-        os_mutex_give(uart_tx_mutex);
+        uint16_t chunk = (sRemainLength > out_mtu_size) ? out_mtu_size : sRemainLength;
+        mac_memcpy(usb_uart_tx_buf, &sTransmitBuffer[sTransmitLength], chunk);
+        usb_cdc_driver_data_pipe_send(cdc_in_handle, usb_uart_tx_buf, chunk);
     }
     else
     {
