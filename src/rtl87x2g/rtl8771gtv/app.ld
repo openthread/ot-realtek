@@ -30,9 +30,9 @@ SECTIONS
     {
         __flash_text_start__ = .;
         KEEP(* (.image_entry))
-        *(EXCLUDE_FILE (*libbee4-patch.a:*.obj *libopenthread-bee4.a:*.obj *libopenthread-hdlc.a:*.obj *libopenthread-spinel-rcp.a:*.obj *libopenthread-radio.a:*.obj *libopenthread-rcp.a:*.obj) .text*)
+        *(EXCLUDE_FILE (*libopenthread-rtl87x2g.a:*.obj *libopenthread-hdlc.a:*.obj *libopenthread-spinel-rcp.a:*.obj *libopenthread-radio.a:*.obj *libopenthread-rcp.a:*.obj) .text*)
         . = ALIGN(4);
-        *(EXCLUDE_FILE (*libbee4-patch.a:*.obj *libopenthread-bee4.a:*.obj *libopenthread-hdlc.a:*.obj *libopenthread-spinel-rcp.a:*.obj *libopenthread-radio.a:*.obj *libopenthread-rcp.a:*.obj) .rodata*)
+        *(EXCLUDE_FILE (*libopenthread-rtl87x2g.a:*.obj *libopenthread-hdlc.a:*.obj *libopenthread-spinel-rcp.a:*.obj *libopenthread-radio.a:*.obj *libopenthread-rcp.a:*.obj) .rodata*)
         . = ALIGN(4);
         * (.isr.text)
         * (.app.flash.text)
