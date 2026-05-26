@@ -212,7 +212,7 @@ typedef struct
     bool ack_receive_done;
     bool ack_receive_pending;
 
-    bool tx_backoff_tmo;
+    volatile bool tx_backoff_tmo;
     volatile uint64_t tx_backoff_pending;
     uint32_t tx_backoff_delay;
     uint8_t tx_result;
