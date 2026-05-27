@@ -1,7 +1,7 @@
 # add library rtl87x2g-init for zboss initialization
 add_library(rtl87x2g-init STATIC
     "${REALTEK_SDK_ROOT}/bsp/boot/rtl87x2g/startup_rtl.c"
-    system_rtl.c
+    "${REALTEK_SDK_ROOT}/bsp/boot/rtl87x2g/system_rtl.c"
     zb_main.c
     main_ns.c
     dbg_printf.c

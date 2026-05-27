@@ -38,7 +38,7 @@ add_library(openthread-rtl87x2g
     uart.c
     # start up and entry point
     "${REALTEK_SDK_ROOT}/bsp/boot/rtl87x2g/startup_rtl.c"
-    system_rtl.c
+    "${REALTEK_SDK_ROOT}/bsp/boot/rtl87x2g/system_rtl.c"
     zb_main.c
     thread_task.c
     # crypto
