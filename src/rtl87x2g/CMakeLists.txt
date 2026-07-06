@@ -33,6 +33,8 @@ set(TARGETS_CONFIGS
     "rtl8777g"                 "-DBOARD_RTL8777G"                     "app.ld.gen"
     "rtl8777g_cert"            "-DBOARD_RTL8777G -DBUILD_CERT"        "app.ld.gen"
     "rtl8777g_test"            "-DBOARD_RTL8777G"                     "app.ld.gen"
+    "otbr"                     "-DBOARD_EVB"                          "app.ld.gen"
+    "rtl8777g_ncp"             "-DBOARD_RTL8777G -DBUILD_USB"         "app.ld.gen"
 )
 
 function(setup_target target_name)
@@ -61,6 +63,24 @@ include(cmake/rtl87x2g-internal.cmake)
 include(cmake/rtl87x2g-mbedtls.cmake)
 include(cmake/rtl87x2g-peripheral.cmake)
 include(cmake/openthread-rtl87x2g.cmake)
+include(cmake/rtl87x2g-init.cmake)
+add_dependencies(openthread-rtl87x2g rtl87x2g-init)
+
+if("${BUILD_BOARD_TARGET}" STREQUAL "otbr")
+    add_subdirectory(otbr)
+    target_link_libraries(openthread-rtl87x2g
+    PUBLIC 
+        ot-br-rtk
+    ) 
+
+    target_link_libraries(ot-config
+    INTERFACE
+        openthread-rtl87x2g
+        openthread-ftd
+    )
+
+endif()
+
 
 if(${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-ftd" OR ${OT_CMAKE_NINJA_TARGET} STREQUAL "matter-cli-mtd")
     include(${MATTER_ADAPTER_PATH}/vendor/matter_adapter.cmake)

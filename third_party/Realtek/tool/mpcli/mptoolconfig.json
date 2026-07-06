@@ -1,12 +1,14 @@
 {
     "mptoolconfig": {"port": "/dev/ttyUSB0","baud": "115200",
         "appimage": {"relativepath": "bin",
-            "file": [{"id": 0,"address": "0x04001000","name": "configFile_2023.11.14.15-6f37eb264a0b078eb9cc388608c8ea5a.bin","enable":"1"},
-                    {"id": 1,"address": "0x04002000","name": "boot_patch_MP_master_1.0.66.0_295b1124-c4ce1ab447414599c3da0b7a26e5f399.bin","enable":"1"},
-                    {"id": 2,"address": "0x04012000","name": "OTAHeader_Bank0_1.0.0.1-00c7120cdd28639656023a45903ab6e8.bin","enable":"1"},
-                    {"id": 3,"address": "0x04013000","name": "Test_sys_patch_MP_master_1.0.64.0_fd47b9b5-cd5b79e4c2273eac4f10002827256539.bin","enable":"1"},
-                    {"id": 4,"address": "0x0401B000","name": "bt_stack_patch_MP_master_0.0.65.0_2cefd1b0-d046a8e759141284dc6461e67bf351b2.bin","enable":"1"},
-                    {"id": 5,"address": "0x0405F000","name": "<ot-cli-ftd.bin>","enable":"0"}]
+            "file": [{"id": 0,"address": "0x04001000","name": "configFile_2025.11.18.19-4b4657ac58e24a099c91afc0fb81e0bc.bin","enable":"1"},
+                    {"id": 1,"address": "0x04002000","name": "BANK0_boot_patch_MP_release_1.0.183.5_cc5f029b-8fd5fc7c951f748a3a2cde89770311ab.bin","enable":"1"},
+                    {"id": 2,"address": "0x0400A000","name": "BANK1_boot_patch_MP_release_1.0.183.5_cc5f029b-01367d8b512274a7789ee9bce5b6a1f8.bin","enable":"1"},
+                    {"id": 3,"address": "0x04012000","name": "OTAHeader_Bank0_1.0.0.1-1b7ba850d078ab44b52853d64ba51d1e.bin","enable":"1"},
+                    {"id": 4,"address": "0x04013000","name": "BANK0_sys_patch_MP_release_1.0.183.28_959eed8b-35044e2051eeb5ab52c15e550c18f5ea.bin","enable":"1"},
+                    {"id": 5,"address": "0x0401B000","name": "bt_stack_patch_MP_master_0.0.188.0_ffeea2ad-06a31dab7d410789889364e3fc846b04.bin","enable":"1"},
+                    {"id": 6,"address": "0x0402A000","name": "bt_host_MP_000_1.0.32.0_4aaeeb69-6b862f5e9ff6be2cebb8e4adbabd99bd.bin","enable":"1"},
+                    {"id": 7,"address": "0x0405F000","name": "<ot-cli-ftd.bin>","enable":"0"}]
         }
     }
 }

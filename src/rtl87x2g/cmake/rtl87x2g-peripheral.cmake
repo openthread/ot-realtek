@@ -35,6 +35,7 @@ add_library(rtl87x2g-peripheral
     "${REALTEK_SDK_ROOT}/bsp/driver/uart/src/rtl_common/rtl_uart.c"
     "${REALTEK_SDK_ROOT}/bsp/driver/dma/src/rtl_common/rtl_gdma.c"
     "${REALTEK_SDK_ROOT}/bsp/driver/gpio/src/rtl_common/rtl_gpio.c"
+    "${REALTEK_SDK_ROOT}/bsp/driver/i2c/src/rtl_common/rtl_i2c.c"
 )
 
 set_target_properties(
@@ -46,7 +47,7 @@ set_target_properties(
 target_link_directories(rtl87x2g-peripheral
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/${BUILD_TARGET}
-        ${PROJECT_SOURCE_DIR}/lib/${RT_PLATFORM}
+        ${OT_REALTEK_ROOT}/lib/${RT_PLATFORM}
 )
 
 target_include_directories(rtl87x2g-peripheral
