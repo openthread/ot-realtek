@@ -44,16 +44,9 @@
 
 
 uint8_t mode;
-uint32_t raddr;
-uint8_t rsrc;
-uint8_t rvalue[64];
-uint32_t addr;
 uint32_t vid = 0x0BDA;
 uint32_t pid = 0x8777;
 char str[60];
-char *src;
-char *value;
-const char *wdata;
 IMG_ID image_id;
 T_IMAGE_VERSION current_image_ver = {0};
 uint32_t active_bank_image_size = 0;
@@ -122,14 +115,6 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
     case SPINEL_PROP_VENDOR_RTK_PTA_MODE:
         //add PTA enable function here
         error = mEncoder.WriteUint8(mode);
-        break;
-
-    case SPINEL_PROP_VENDOR_RTK_READ_REGISTER:
-        error = mEncoder.WriteUtf8((const char *)rvalue);
-        break;
-
-    case SPINEL_PROP_VENDOR_RTK_WRITE_REGISTER:
-        error = mEncoder.WriteUtf8(value);
         break;
 
     case SPINEL_PROP_VENDOR_RTK_VID_PID:
@@ -214,13 +199,8 @@ otError NcpBase::VendorSetPropertyHandler(spinel_prop_key_t aPropKey)
         break;
 
     case SPINEL_PROP_VENDOR_RTK_READ_REGISTER:
-        mDecoder.ReadUint32(raddr);
-        break;
-
     case SPINEL_PROP_VENDOR_RTK_WRITE_REGISTER:
-        mDecoder.ReadUtf8(wdata);
-        src = strtok((char *)wdata, " ");
-        value = strtok(NULL, " ");
+        error = OT_ERROR_NOT_FOUND;
         break;
 
     default:
