@@ -9,7 +9,7 @@
         "description": "Matter default configuration",
         "hidden": false,
         "generator": "Ninja",
-        "toolchainFile": "vendor/bee4/arm-none-eabi.cmake",
+        "toolchainFile": "src/rtl87x2g/arm-none-eabi.cmake",
         "cacheVariables": {
           "CMAKE_BUILD_TYPE": "Release",
           "BUILD_TYPE": "dev",
@@ -33,7 +33,7 @@
         "description": "Matter single security configuration",
         "hidden": false,
         "generator": "Ninja",
-        "toolchainFile": "vendor/bee4/arm-none-eabi.cmake",
+        "toolchainFile": "src/rtl87x2g/arm-none-eabi.cmake",
         "cacheVariables": {
           "CMAKE_BUILD_TYPE": "Release",
           "BUILD_TYPE": "sdk",
@@ -57,7 +57,7 @@
         "description": "Matter configuration with rpc enabled",
         "hidden": false,
         "generator": "Ninja",
-        "toolchainFile": "vendor/bee4/arm-none-eabi.cmake",
+        "toolchainFile": "src/rtl87x2g/arm-none-eabi.cmake",
         "cacheVariables": {
           "CMAKE_BUILD_TYPE": "Release",
           "BUILD_TYPE": "sdk",
@@ -81,7 +81,7 @@
         "description": "Matter dual bank configuration",
         "hidden": false,
         "generator": "Ninja",
-        "toolchainFile": "vendor/bee4/arm-none-eabi.cmake",
+        "toolchainFile": "src/rtl87x2g/arm-none-eabi.cmake",
         "cacheVariables": {
           "CMAKE_BUILD_TYPE": "Release",
           "BUILD_TYPE": "sdk",
@@ -106,7 +106,7 @@
         "description": "Matter dual security configuration",
         "hidden": false,
         "generator": "Ninja",
-        "toolchainFile": "vendor/bee4/arm-none-eabi.cmake",
+        "toolchainFile": "src/rtl87x2g/arm-none-eabi.cmake",
         "cacheVariables": {
           "CMAKE_BUILD_TYPE": "Release",
           "BUILD_TYPE": "sdk",
@@ -131,7 +131,7 @@
         "description": "Matter 2M flash configuration",
         "hidden": false,
         "generator": "Ninja",
-        "toolchainFile": "vendor/bee4/arm-none-eabi.cmake",
+        "toolchainFile": "src/rtl87x2g/arm-none-eabi.cmake",
         "cacheVariables": {
           "CMAKE_BUILD_TYPE": "Release",
           "BUILD_TYPE": "sdk",

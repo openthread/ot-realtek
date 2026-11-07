@@ -2748,7 +2748,6 @@ APP_RAM_TEXT_SECTION void rxely_handler(uint8_t pan_idx, uint32_t arg)
                                          0);
         }
     }
-    while (0);
 }
 
 void mac_report_enhack_transmit_done(uint8_t pan_idx)
