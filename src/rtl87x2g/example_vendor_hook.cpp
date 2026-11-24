@@ -43,20 +43,16 @@
 
 
 
+namespace
+{
 uint8_t mode;
-uint32_t raddr;
-uint8_t rsrc;
-uint8_t rvalue[64];
-uint32_t addr;
 uint32_t vid = 0x0BDA;
 uint32_t pid = 0x8777;
 char str[60];
-char *src;
-char *value;
-const char *wdata;
 IMG_ID image_id;
 T_IMAGE_VERSION current_image_ver = {0};
 uint32_t active_bank_image_size = 0;
+} // namespace
 
 
 namespace ot
@@ -124,27 +120,19 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
         error = mEncoder.WriteUint8(mode);
         break;
 
-    case SPINEL_PROP_VENDOR_RTK_READ_REGISTER:
-        error = mEncoder.WriteUtf8((const char *)rvalue);
-        break;
-
-    case SPINEL_PROP_VENDOR_RTK_WRITE_REGISTER:
-        error = mEncoder.WriteUtf8(value);
-        break;
-
     case SPINEL_PROP_VENDOR_RTK_VID_PID:
-        sprintf(str, "VID=%lX & PID=%lX", vid, pid);
+        snprintf(str, sizeof(str), "VID=%X & PID=%X", (unsigned int)vid, (unsigned int)pid);
         error = mEncoder.WriteUtf8((const char *)str);
         break;
 
     case SPINEL_PROP_VENDOR_RTK_VERSION:
         image_id = IMG_MCUAPP;
         get_ota_bank_image_version(true, image_id, &current_image_ver);
-        sprintf(str, "app current_ver %d.%d.%d.%d",
-                current_image_ver.ver_info.img_sub_version._version_major,
-                current_image_ver.ver_info.img_sub_version._version_minor,
-                current_image_ver.ver_info.img_sub_version._version_revision,
-                current_image_ver.ver_info.img_sub_version._version_reserve);
+        snprintf(str, sizeof(str), "app current_ver %u.%u.%u.%u",
+                 (unsigned int)current_image_ver.ver_info.img_sub_version._version_major,
+                 (unsigned int)current_image_ver.ver_info.img_sub_version._version_minor,
+                 (unsigned int)current_image_ver.ver_info.img_sub_version._version_revision,
+                 (unsigned int)current_image_ver.ver_info.img_sub_version._version_reserve);
         error = mEncoder.WriteUtf8((const char *)str);
         break;
 
@@ -154,22 +142,17 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
         if ((0 != active_bank_image_size) && (0xffffffff != active_bank_image_size))
         {
             get_ota_bank_image_version(true, image_id, &current_image_ver);
-            sprintf(str, "app data1 current_ver %d.%d.%d.%d",
-                    current_image_ver.ver_info.img_sub_version._version_major,
-                    current_image_ver.ver_info.img_sub_version._version_minor,
-                    current_image_ver.ver_info.img_sub_version._version_revision,
-                    current_image_ver.ver_info.img_sub_version._version_reserve);
+            snprintf(str, sizeof(str), "app data1 current_ver %u.%u.%u.%u",
+                     (unsigned int)current_image_ver.ver_info.img_sub_version._version_major,
+                     (unsigned int)current_image_ver.ver_info.img_sub_version._version_minor,
+                     (unsigned int)current_image_ver.ver_info.img_sub_version._version_revision,
+                     (unsigned int)current_image_ver.ver_info.img_sub_version._version_reserve);
             error = mEncoder.WriteUtf8((const char *)str);
         }
         else
         {
-            sprintf(str, "no app data1");
-            error = mEncoder.WriteUtf8((const char *)str);
+            error = mEncoder.WriteUtf8("no app data1");
         }
-        break;
-
-    case SPINEL_PROP_VENDOR_RTK_CONFIG_READ:
-        mEncoder.WriteDataWithLen((uint8_t *)(&config_param), sizeof(rtk_config_param));
         break;
 
     default:
@@ -183,8 +166,10 @@ otError NcpBase::VendorGetPropertyHandler(spinel_prop_key_t aPropKey)
 otError NcpBase::VendorSetPropertyHandler(spinel_prop_key_t aPropKey)
 {
     otError error = OT_ERROR_NONE;
+#if FEATURE_SUPPORT_RTK_SIGN || FEATURE_SUPPORT_CFU
     const uint8_t *data;
     uint16_t        dataLen;
+#endif
 
     switch (aPropKey)
     {
@@ -215,33 +200,14 @@ otError NcpBase::VendorSetPropertyHandler(spinel_prop_key_t aPropKey)
         mDecoder.ReadUint8(mode);
         break;
 
+    // Register read/write, config-param write and flow control are implemented by
+    // Realtek-internal debug helpers that are not part of the public SDK. Report them
+    // as unsupported rather than silently returning success.
     case SPINEL_PROP_VENDOR_RTK_READ_REGISTER:
-        mDecoder.ReadUint32(raddr);
-        mac_read_reg(raddr, rvalue);
-        break;
-
-
     case SPINEL_PROP_VENDOR_RTK_WRITE_REGISTER:
-        mDecoder.ReadUtf8(wdata);
-        src = strtok((char *)wdata, " ");
-        value = strtok(NULL, " ");
-        mac_write_reg((uint8_t *)src, (uint8_t *)value);
-        break;
-
     case SPINEL_PROP_VENDOR_RTK_CONFIG_WTITE:
-        mDecoder.ReadDataWithLen(data, dataLen);
-        if (false == rtk_write_config_param(data, dataLen))
-        {
-            error = OT_ERROR_FAILED;
-        }
-        break;
-
     case SPINEL_PROP_VENDOR_RTK_FLOW_CONTROL:
-        mDecoder.ReadDataWithLen(data, dataLen);
-        if (false == rtk_enable_flow_control(data, dataLen))
-        {
-            error = OT_ERROR_FAILED;
-        }
+        error = OT_ERROR_NOT_FOUND;
         break;
 
     default:
